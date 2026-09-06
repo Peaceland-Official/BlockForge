@@ -1,0 +1,1352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>BlockForge</title>
+<style>
+:root{--ui:#2c2c2c;--ui2:#454545;--edge:#151515;--light:#d8d8d8;--green:#3f9b3f;--text:#fff}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#fff}
+button,input,select{font:inherit}
+.screen{display:none;position:absolute;inset:0}.screen.active{display:block}
+.pixelBtn{border:3px solid #111;border-radius:0;background:#cfcfcf;color:#252525;box-shadow:inset 0 0 0 2px #f4f4f4;padding:13px 18px;font-weight:800;cursor:pointer}
+.pixelBtn:active{filter:brightness(.86)} .pixelBtn.green{background:#378c39;color:#fff;box-shadow:inset 0 0 0 2px #65c767}
+#menu{background:linear-gradient(#6b83b0 0 48%,#d97f55 63%,#334b2b 64%);overflow:hidden}
+.bgMount{position:absolute;inset:25% -10% 15%;background:linear-gradient(135deg,transparent 0 10%,#43505c 10% 24%,transparent 24% 30%,#52606b 30% 47%,transparent 47% 55%,#35414b 55% 72%,transparent 72%);opacity:.8}
+.bgGround{position:absolute;left:0;right:0;bottom:0;height:29%;background:linear-gradient(#446b35 0 12%,#2d4527 12%)}
+.tree{position:absolute;bottom:19%;width:130px;height:190px;background:#213b20;clip-path:polygon(42% 0,58% 0,58% 40%,100% 40%,100% 100%,0 100%,0 40%,42% 40%)}
+.t1{left:5%}.t2{right:4%;transform:scale(.9)}.t3{left:69%;transform:scale(.65);opacity:.75}
+.menuShell{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(1100px,92vw);height:min(720px,88vh);display:flex;flex-direction:column;filter:drop-shadow(0 18px 28px #0008)}
+.tabs{height:68px;display:flex;gap:6px;padding:0 8px}
+.tab{flex:0 0 210px;border:4px solid #161616;border-bottom:0;background:#666;color:#eee;font-size:1.2rem;font-weight:900}
+.tab.active{background:#d7d7d7;color:#2d2d2d}
+.menuPanel{position:relative;flex:1;background:#171717eF;border:5px solid #202020;box-shadow:inset 0 0 0 3px #ddd,inset 0 0 0 6px #666;padding:25px;overflow:auto}
+.panel{display:none}.panel.active{display:block}
+.topRow{display:flex;gap:10px}.topRow .pixelBtn{flex:1;font-size:1.25rem}
+.heading{font-size:1.5rem;font-weight:900;margin:18px 0 10px}
+.worldList{display:flex;flex-direction:column;gap:9px}
+.worldRow{display:grid;grid-template-columns:135px 1fr auto 58px;gap:12px;align-items:center;background:#414141;border:3px solid #1b1b1b;box-shadow:inset 0 0 0 2px #5d5d5d;padding:9px;cursor:pointer}
+.worldRow:hover{background:#4d4d4d}.thumb{height:78px;border:2px solid #777;background:linear-gradient(#75c8f3 0 55%,#5b8f45 55% 65%,#6b4e33 65%)}
+.thumb.island{background:linear-gradient(#75c8f3 0 55%,#d4c36e 55% 65%,#4c7cc0 65%)}
+.wName{font-size:1.28rem;font-weight:900}.sub,.meta{color:#d3d3d3}.meta{text-align:right;line-height:1.4}.edit{width:50px;height:50px;padding:0;font-size:1.2rem}
+.modsEmpty{min-height:420px;border:3px dashed #555;display:grid;place-items:center;text-align:center;color:#bbb;padding:30px}.modsEmpty b{display:block;color:#fff;font-size:1.7rem;margin-bottom:10px}
+.modal{display:none;position:absolute;inset:0;background:#000c;z-index:30;align-items:center;justify-content:center;padding:16px}.modal.open{display:flex}
+.modalCard{width:min(620px,92vw);background:#303030;border:4px solid #111;box-shadow:inset 0 0 0 3px #ddd,inset 0 0 0 6px #666;padding:22px}
+.form{display:grid;gap:13px}.form label{display:block;margin-bottom:5px;font-weight:900}.form input,.form select{width:100%;border:3px solid #777;border-radius:0;background:#1d1d1d;color:#fff;padding:12px}.modes{display:flex;gap:8px}.mode{flex:1;border-radius:0;border:3px solid #111;background:#555;color:#fff;padding:12px}.mode.active{background:#398c3d;box-shadow:inset 0 0 0 2px #65c969}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
+#game{background:#7bc8f3}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#cross{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;z-index:10;pointer-events:none}
+#cross:before,#cross:after{content:"";position:absolute;background:#fff;filter:drop-shadow(1px 1px #000)}
+#cross:before{left:8px;top:0;width:2px;height:18px}#cross:after{left:0;top:8px;width:18px;height:2px}
+#gameTop{position:absolute;z-index:14;left:10px;right:10px;top:max(10px,env(safe-area-inset-top));display:flex;justify-content:space-between;pointer-events:none}
+.gpill{background:#0008;border:2px solid #fff4;padding:7px 9px;font-size:.82rem;backdrop-filter:blur(5px)}
+#pauseOpen{pointer-events:auto;background:#0008;color:#fff;border:2px solid #fff5;border-radius:0;padding:8px 12px}
+#bottomHud{position:absolute;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:15;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+.bars{display:flex;gap:14px;align-items:center;font-size:18px;text-shadow:2px 2px #000}.armourRow{display:flex;gap:2px;align-items:center;justify-content:flex-start;width:100%;padding-left:2px;font-size:17px;text-shadow:2px 2px #000}.armour{color:#d7dde8}
+.barGroup{display:flex;gap:2px}.heart{color:#e84f4f}.food{color:#d99845}
+.hotbar{display:flex;gap:3px;background:#0009;padding:5px;border:2px solid #aaa8}.slot{width:50px;height:50px;background:#555c;border:2px solid #8e8e8e;display:grid;place-items:center;position:relative;pointer-events:auto;cursor:pointer;font-size:23px}.slot.sel{outline:3px solid #fff;transform:translateY(-2px)}.slot small{position:absolute;right:3px;bottom:1px;font-size:10px;text-shadow:1px 1px #000}
+.breakRing{display:none;position:absolute;left:50%;top:calc(50% + 28px);transform:translateX(-50%);width:120px;height:8px;background:#000b;border:1px solid #fff6;z-index:12}.breakFill{height:100%;width:0;background:#fff}
+.toast{position:absolute;z-index:60;top:75px;left:50%;transform:translateX(-50%);background:#000c;border:2px solid #777;padding:8px 12px;opacity:0;transition:.18s}.toast.show{opacity:1}
+.overlay{display:none;position:absolute;inset:0;background:#000b;backdrop-filter:blur(6px);z-index:50;align-items:center;justify-content:center;padding:15px;pointer-events:auto}.overlay.open{display:flex}.pauseCard{width:min(430px,92vw);background:#303030;border:4px solid #111;box-shadow:inset 0 0 0 3px #ddd,inset 0 0 0 6px #666;padding:22px;text-align:center}.pauseCard button{width:100%;margin-top:9px}
+#inventoryOverlay .pauseCard{width:min(760px,95vw);text-align:left}.invGrid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin:12px 0}.invCell{aspect-ratio:1;background:#555;border:2px solid #888;display:grid;place-items:center;position:relative;font-size:24px}.invCell small{position:absolute;right:3px;bottom:1px;font-size:10px}.craft{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}.craftGrid{display:grid;grid-template-columns:repeat(2,58px);gap:5px}.craftCell{width:58px;height:58px;background:#555;border:2px solid #888;display:grid;place-items:center}.craftOut{width:68px;height:68px;background:#555;border:2px solid #888;display:grid;place-items:center;font-size:25px}
+.mobile{display:none;position:absolute;inset:0;z-index:20;pointer-events:none}.joy{position:absolute;left:20px;bottom:90px;width:126px;height:126px;border-radius:50%;background:#fff1;border:2px solid #fff2;pointer-events:auto;touch-action:none}.stick{position:absolute;left:36px;top:36px;width:54px;height:54px;border-radius:50%;background:#fff5}.acts{position:absolute;right:16px;bottom:90px;display:grid;grid-template-columns:60px 60px;gap:9px;pointer-events:auto}.acts button{width:60px;height:60px;border-radius:50%;background:#0008;color:#fff;border:2px solid #fff4;font-weight:900}.invBtn{position:absolute;right:18px;top:76px;pointer-events:auto;background:#0008;color:#fff;border:2px solid #fff4;padding:9px 11px}
+@media(max-width:820px){.mobile{display:block}.worldRow{grid-template-columns:100px 1fr 54px}.meta{display:none}.tabs{height:58px}.tab{flex:1;font-size:1rem}.menuShell{height:90vh}.hotbar .slot{width:40px;height:40px;font-size:19px}.bars{font-size:15px}.gpill:nth-child(2){display:none}}
+
+#authScreen{
+  display:flex;position:absolute;inset:0;z-index:200;background:
+  linear-gradient(rgba(20,30,45,.45),rgba(20,30,45,.55)),
+  linear-gradient(#6d87b5 0 50%,#d78858 64%,#334b2b 65%);
+  align-items:center;justify-content:center;padding:18px
+}
+.authCard{
+  width:min(520px,94vw);background:#2f2f2f;border:4px solid #111;
+  box-shadow:inset 0 0 0 3px #ddd,inset 0 0 0 6px #666,0 24px 45px #0008;
+  padding:24px
+}
+.authTitle{font-size:2rem;font-weight:900;text-align:center;margin:0 0 8px}
+.authSub{text-align:center;color:#d2d2d2;margin-bottom:18px;line-height:1.45}
+.authTabs{display:flex;gap:8px;margin-bottom:16px}
+.authTab{flex:1;border-radius:0;border:3px solid #111;background:#555;color:#fff;padding:12px;font-weight:900}
+.authTab.active{background:#d6d6d6;color:#242424;box-shadow:inset 0 0 0 2px #f4f4f4}
+.authPane{display:none}.authPane.active{display:block}
+.authField{margin-bottom:13px}.authField label{display:block;margin-bottom:5px;font-weight:900}
+.authField input{width:100%;background:#1f1f1f;color:#fff;border:3px solid #777;border-radius:0;padding:12px}
+.authError{min-height:22px;color:#ffb6b6;font-size:.9rem;margin-top:10px}
+.authUserBar{
+  position:absolute;right:12px;top:12px;z-index:120;display:none;align-items:center;gap:8px;
+  background:#0009;border:2px solid #ffffff33;padding:7px 9px
+}
+.authUserBar.show{display:flex}.authUserBar span{font-size:.85rem}
+.authUserBar button{background:#5a5a5a;color:#fff;border:2px solid #222;border-radius:0;padding:6px 9px}
+
+
+/* BlockForge game UI refinements */
+.tabs{overflow-x:auto;overflow-y:hidden}
+.tab{min-width:175px;flex:1 0 175px}
+.tutorialGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tutorialCard{
+  text-align:left;border:3px solid #171717;border-radius:0;background:#4a4a4a;color:#fff;
+  box-shadow:inset 0 0 0 2px #666;padding:15px;cursor:pointer
+}
+.tutorialCard b{display:block;font-size:1.08rem;margin-bottom:6px}
+.tutorialCard span{display:block;color:#d1d1d1;line-height:1.4;font-size:.9rem}
+.tutorialText{margin-top:14px;background:#242424;border:3px solid #555;padding:16px;line-height:1.55;color:#eee}
+.settingsList{display:grid;gap:10px}
+.settingRow{display:grid;grid-template-columns:1fr minmax(120px,260px);gap:18px;align-items:center;background:#333;border:3px solid #555;padding:14px;font-weight:900}
+.settingRow input,.settingRow select{width:100%}
+.actionTextBtn{
+  font-family:"Mojangles","Minecraft Ten",ui-monospace,monospace;
+  font-weight:700;letter-spacing:.01em;
+  min-width:88px;height:46px;border-radius:0;
+  background:rgba(35,35,35,.82);color:#fff;border:3px solid rgba(255,255,255,.72);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.7);text-shadow:2px 2px #000;
+  padding:6px 12px
+}
+.buildButtons{
+  position:absolute;left:16px;bottom:max(16px,env(safe-area-inset-bottom));
+  display:flex;gap:8px;pointer-events:auto
+}
+.joy{left:auto;right:18px;bottom:90px}
+.acts{right:50px;bottom:225px;grid-template-columns:58px 58px}
+#breakCreative{display:none}
+#cross.small{transform:translate(-50%,-50%) scale(.75)}
+#cross.large{transform:translate(-50%,-50%) scale(1.35)}
+@media(max-width:820px){
+  .tutorialGrid{grid-template-columns:1fr}
+  .settingRow{grid-template-columns:1fr}
+  .tabs{height:58px}
+  .tab{min-width:135px;font-size:.92rem}
+}
+
+
+/* ===== Expanded in-game HUD / Pause Settings / Stats ===== */
+#gameTop{align-items:flex-start}
+.topRightTools{display:flex;gap:7px;pointer-events:auto}
+.hudBtn{
+  min-height:42px;background:rgba(25,25,25,.82);color:#fff;border:3px solid rgba(255,255,255,.45);
+  border-radius:0;box-shadow:inset 0 0 0 2px rgba(0,0,0,.7);padding:7px 11px;font-weight:900
+}
+#statsPanel{
+  display:none;position:absolute;z-index:19;right:10px;top:max(62px,calc(env(safe-area-inset-top) + 62px));
+  width:min(395px,calc(100vw - 20px));background:rgba(0,0,0,.74);border:2px solid rgba(255,255,255,.35);
+  padding:10px 12px;pointer-events:none;font-size:12px;line-height:1.5;text-shadow:1px 1px #000
+}
+#statsPanel.open{display:block}
+.statsGrid{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px}
+.statsGrid b{color:#fff}.statsGrid span{color:#ddd;overflow-wrap:anywhere}
+.pauseSettings{width:min(760px,95vw)!important;max-height:88%;overflow:auto;text-align:left!important;pointer-events:auto!important;touch-action:manipulation}
+.pauseTabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.pauseTab{
+  flex:1;min-width:120px;border-radius:0;border:3px solid #151515;background:#555;color:#fff;
+  padding:11px;font-weight:900
+}
+.pauseTab.active{background:#d7d7d7;color:#252525;box-shadow:inset 0 0 0 2px #f5f5f5}
+.pauseSection{display:none}.pauseSection.active{display:block}
+.pauseGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pauseSetting{background:#3a3a3a;border:3px solid #555;padding:12px;min-width:0}
+.pauseSetting label{display:block;font-weight:900;margin-bottom:7px}
+.pauseSetting select,.pauseSetting input{
+  width:100%;min-height:42px;background:#202020;color:#fff;border:3px solid #777;border-radius:0;padding:8px
+}
+.ruleNote{color:#cfcfcf;font-size:.84rem;line-height:1.45;margin-top:6px}
+.pauseActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pauseActions .pixelBtn{flex:1;min-width:160px}
+#difficultyBadge{font-size:.85rem;color:#ffe28b}
+#inventoryOverlay .pauseCard{width:min(760px,95vw);text-align:left}
+@media(max-width:700px){
+  .pauseGrid{grid-template-columns:1fr}
+  #statsPanel{font-size:11px}
+  .topRightTools{gap:5px}.hudBtn{padding:6px 8px;font-size:.82rem}
+}
+
+
+/* ===== iPad / touch fixes ===== */
+#game, #game *{
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+}
+#view{touch-action:none!important}
+.topRightTools{pointer-events:auto!important}
+#gameTop .hudBtn{pointer-events:auto!important}
+#game.playing ~ #authUserBar{display:none!important}
+.slot,.invCell{font-size:0!important;overflow:hidden}
+.blockThumb{
+  width:32px;height:32px;image-rendering:pixelated;image-rendering:crisp-edges;
+  border:1px solid rgba(255,255,255,.18);box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)
+}
+.slot small,.invCell small{font-size:10px!important}
+.emptyWorlds{
+  background:#2d2d2d;border:3px solid #555;padding:24px;text-align:center;color:#d5d5d5;line-height:1.5
+}
+/* iPad landscape is wider than 820px, so coarse-pointer devices must still get touch controls. */
+@media (pointer:coarse){
+  .mobile{display:block!important}
+  .worldRow{grid-template-columns:100px 1fr 54px}
+  .meta{display:none}
+  .hotbar .slot{width:44px;height:44px}
+  .blockThumb{width:29px;height:29px}
+  .bars{font-size:15px}
+  .authUserBar{top:8px;right:8px}
+}
+
+
+#crouch{display:none}
+.creativeInventoryTitle{font-size:.9rem;color:#ddd;margin:0 0 10px}
+#invGrid.creativeGrid{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));max-height:48vh;overflow:auto}
+#invGrid.creativeGrid .invCell{min-height:66px}
+#bottomHud.creativeHud .bars,#bottomHud.creativeHud #armourRow{display:none!important}
+@media(pointer:coarse){
+  .acts{grid-template-columns:58px 58px!important;grid-template-rows:58px 58px!important}
+  #jump{grid-column:1;grid-row:1}
+  #crouch{grid-column:2;grid-row:1}
+  #sprint{grid-column:1;grid-row:2}
+}
+
+
+/* ===== Major gameplay fix: collision, inventory and mining ===== */
+.breakRing{display:none!important}
+.inventoryWindow{
+  width:min(1080px,96vw);height:min(720px,90vh);background:#c7c7c7;border:4px solid #171717;
+  box-shadow:inset 0 0 0 3px #eeeeee,inset 0 0 0 6px #747474;padding:14px;color:#202020;
+  display:flex;flex-direction:column;gap:10px;pointer-events:auto!important;touch-action:manipulation
+}
+.invHeader{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 5px;font-weight:900;font-size:1.35rem}
+.invCloseTop{width:48px!important;height:44px!important;margin:0!important;border:3px solid #555;background:#e1e1e1;color:#222;font-size:1.4rem;font-weight:900}
+.inventoryBody{flex:1;min-height:0}.inventoryMode{display:none;height:100%;min-height:0}.inventoryMode.active{display:grid}
+#survivalInventory{grid-template-columns:minmax(240px,34%) 1fr;gap:12px}
+.recipePanel{background:#9b9b9b;border:3px solid #5d5d5d;padding:10px;display:flex;flex-direction:column;min-height:0}
+.recipeTabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
+.recipeTab{min-height:42px;border:2px solid #555;background:#cfcfcf;color:#222;font-weight:900;font-size:.78rem;padding:5px}
+.recipeTab.active{outline:3px solid #fff;background:#ededed}
+.invSearch{width:100%;min-height:42px;background:#f0f0f0;color:#222;border:3px solid #666;padding:8px;font-size:16px;margin-bottom:8px}
+.recipeList{overflow:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-content:start;touch-action:pan-y}
+.recipeCard{min-height:66px;background:#bdbdbd;border:2px solid #666;padding:5px;display:grid;place-items:center;text-align:center;font-size:.68rem;color:#222}
+.recipeCard.canCraft{background:#d8d8d8}.recipeCard img{width:34px;height:34px;image-rendering:pixelated}
+.survivalRight{background:#a7a7a7;border:3px solid #626262;padding:10px;display:flex;flex-direction:column;min-height:0}
+.upperInv{display:grid;grid-template-columns:minmax(230px,1fr) minmax(230px,1fr);gap:14px;margin-bottom:10px}
+.playerPanel{display:grid;grid-template-columns:54px 1fr;gap:10px}.armourSlots{display:grid;grid-template-rows:repeat(4,48px);gap:5px}
+.armourSlot,.craftCell,.craftOut,.storageCell,.creativeCell{background:#8b8b8b;border:3px solid #5d5d5d;box-shadow:inset 0 0 0 1px #cfcfcf}
+.armourSlot{display:grid;place-items:center;font-size:.64rem;color:#ddd}
+.playerModel{min-height:207px;background:#777;border:3px solid #595959;position:relative;display:grid;place-items:center}
+.playerModel:before{content:"";width:72px;height:146px;background:linear-gradient(#525252 0 24%,transparent 24% 28%,#525252 28% 72%,transparent 72% 76%,#525252 76%);clip-path:polygon(30% 0,70% 0,70% 22%,83% 22%,83% 63%,70% 63%,70% 100%,54% 100%,54% 67%,46% 67%,46% 100%,30% 100%,30% 63%,17% 63%,17% 22%,30% 22%)}
+.craftingPanel{display:flex;flex-direction:column;justify-content:center}.craftingTitle,.invSectionTitle{font-weight:900;margin:0 0 7px}
+.craftingRow{display:grid;grid-template-columns:auto 30px 64px;align-items:center;gap:10px}.craftGrid{display:grid;grid-template-columns:repeat(var(--craft-size,2),54px);gap:5px}
+.craftCell{width:54px;height:54px;display:grid;place-items:center;position:relative;touch-action:none}.craftCell img{width:34px;height:34px;image-rendering:pixelated}.craftCell small{position:absolute;right:2px;bottom:1px;color:#fff;font-size:10px;text-shadow:1px 1px #000}.craftOut{width:64px;height:64px;display:grid;place-items:center}
+.storageGrid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}.storageCell{aspect-ratio:1;min-width:0;position:relative;display:grid;place-items:center;overflow:hidden}
+.storageCell img,.creativeCell img{width:70%;height:70%;object-fit:contain;image-rendering:pixelated}
+.storageCell small,.creativeCell small{position:absolute;right:3px;bottom:1px;font-size:10px;color:#fff;text-shadow:1px 1px #000}
+.storageCell.empty{background:#888}.hotbarMirror{margin-top:7px}
+#creativeInventory{grid-template-rows:auto auto 1fr auto;gap:8px}
+.creativeTabs{display:flex;gap:5px;overflow-x:auto;touch-action:pan-x}
+.creativeTab{min-width:108px;min-height:42px;border:2px solid #555;background:#bcbcbc;color:#222;font-weight:900}
+.creativeTab.active{background:#ededed;outline:3px solid #fff}
+.creativeItemGrid{overflow:auto;display:grid;grid-template-columns:repeat(9,minmax(54px,1fr));gap:4px;align-content:start;padding:4px;background:#9d9d9d;border:3px solid #666;touch-action:pan-y}
+.creativeCell{aspect-ratio:1;position:relative;display:grid;place-items:center;cursor:pointer}.creativeCell.sel{outline:3px solid #fff}
+.invBottomBtn{width:100%!important;margin:0!important;min-height:48px!important;background:#3f9140!important;color:white!important;border:3px solid #1d451e!important;box-shadow:inset 0 0 0 2px #68c16a!important;font-weight:900!important}
+.toolThumb{width:34px;height:34px;image-rendering:pixelated;object-fit:contain}
+.miningHint{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);z-index:13;background:#0008;border:1px solid #fff4;padding:3px 7px;font-size:11px;opacity:0;transition:opacity .1s;pointer-events:none}
+.miningHint.show{opacity:1}
+@media(pointer:coarse){
+  #inventoryOverlay{padding:8px!important}.inventoryWindow{width:98vw;height:88vh;padding:10px}
+  #survivalInventory{grid-template-columns:minmax(210px,31%) 1fr}.upperInv{grid-template-columns:1fr 1fr}
+  .storageGrid{gap:3px}.creativeItemGrid{grid-template-columns:repeat(9,minmax(46px,1fr))}
+}
+@media(max-width:760px){#survivalInventory{grid-template-columns:1fr}.recipePanel{display:none}.upperInv{grid-template-columns:1fr 1fr}}
+
+
+/* ===== Gameplay polish v3 ===== */
+.joy{left:20px!important;right:auto!important;bottom:90px!important}
+.buildButtons{left:auto!important;right:16px!important;bottom:max(16px,env(safe-area-inset-bottom))!important}
+#sprint[data-on="1"]{background:#3f9140!important;border-color:#8bd88d!important}
+#sprint.disabled{opacity:.38!important;filter:grayscale(1)}
+.slot.empty{background:#3f3f3f!important}
+.slot.empty img,.slot.empty small{display:none!important}
+.editWorldDanger{background:#8d3535!important;color:#fff!important;box-shadow:inset 0 0 0 2px #c45d5d!important}
+.worldEditGrid{display:grid;gap:13px}
+.worldEditGrid label{display:block;margin-bottom:5px;font-weight:900}
+.worldEditGrid input,.worldEditGrid select{width:100%;border:3px solid #777;border-radius:0;background:#1d1d1d;color:#fff;padding:12px}
+
+</style>
+</head>
+<body>
+
+<div id="authScreen">
+  <div class="authCard">
+    <div class="authTitle">BlockForge</div>
+    <div class="authSub">Sign in or create an account to continue. Guest mode is not available.</div>
+    <div class="authTabs">
+      <button class="authTab active" data-auth="signin">Sign In</button>
+      <button class="authTab" data-auth="signup">Sign Up</button>
+    </div>
+
+    <div id="signinPane" class="authPane active">
+      <div class="authField"><label>Username</label><input id="signinUser" autocomplete="username"></div>
+      <div class="authField"><label>Password</label><input id="signinPass" type="password" autocomplete="current-password"></div>
+      <button id="signinBtn" class="pixelBtn green" style="width:100%">Sign In</button>
+      <div id="signinError" class="authError"></div>
+    </div>
+
+    <div id="signupPane" class="authPane">
+      <div class="authField"><label>Username</label><input id="signupUser" autocomplete="username"></div>
+      <div class="authField"><label>Password</label><input id="signupPass" type="password" autocomplete="new-password"></div>
+      <div class="authField"><label>Confirm Password</label><input id="signupPass2" type="password" autocomplete="new-password"></div>
+      <button id="signupBtn" class="pixelBtn green" style="width:100%">Create Account</button>
+      <div id="signupError" class="authError"></div>
+    </div>
+  </div>
+</div>
+
+<div id="authUserBar" class="authUserBar">
+  <span id="signedInAs"></span>
+  <button id="signOutBtn">Sign Out</button>
+</div>
+
+<section id="menu" class="screen active">
+  <div class="bgMount"></div><div class="bgGround"></div><div class="tree t1"></div><div class="tree t2"></div><div class="tree t3"></div>
+  <div class="menuShell">
+    <div class="tabs">
+      <button class="tab active" data-tab="worlds">🌍 Worlds</button>
+      <button class="tab" data-tab="mods">🧩 Mods</button>
+      <button class="tab" data-tab="tutorials">📖 Tutorials</button>
+      <button class="tab" data-tab="settings">⚙ Settings</button>
+    </div>
+    <div class="menuPanel">
+      <div id="worlds" class="panel active">
+        <div class="topRow"><button id="newBtn" class="pixelBtn">Create New</button></div>
+        <div class="heading">Worlds</div>
+        <div id="worldList" class="worldList"></div>
+      </div>
+    </div>
+    <div id="mods" class="panel">
+        <div class="heading">Mods</div>
+        <div class="modsEmpty"><div><b>🧩 No mods installed</b>This area is reserved for optional BlockForge mods later. World Builder can be added here as a mod rather than a base game mode.</div></div>
+      </div>
+
+      <div id="tutorials" class="panel">
+        <div class="heading">Tutorials</div>
+        <div class="tutorialGrid">
+          <button class="tutorialCard" data-tutorial="movement"><b>Movement & Looking</b><span>Move around and aim using the fixed centre crosshair.</span></button>
+          <button class="tutorialCard" data-tutorial="placing"><b>Placing Blocks</b><span>Aim at a block face and press Place.</span></button>
+          <button class="tutorialCard" data-tutorial="breaking"><b>Breaking Blocks</b><span>Creative breaks instantly; Survival uses press-and-hold.</span></button>
+          <button class="tutorialCard" data-tutorial="inventory"><b>Inventory & Hotbar</b><span>Select blocks and items for building.</span></button>
+          <button class="tutorialCard" data-tutorial="survival"><b>Survival</b><span>Health, hunger, mining and gathering.</span></button>
+          <button class="tutorialCard" data-tutorial="creative"><b>Creative</b><span>Unlimited building and instant breaking.</span></button>
+        </div>
+        <div id="tutorialText" class="tutorialText">
+          Select a tutorial above.
+        </div>
+      </div>
+
+      <div id="settings" class="panel">
+        <div class="heading">Settings</div>
+        <div class="settingsList">
+          <label class="settingRow"><span>Look Sensitivity</span><input id="sensitivity" type="range" min="2" max="12" value="6"></label>
+          <label class="settingRow"><span>Render Distance</span><select id="renderDistance"><option>Short</option><option selected>Normal</option><option>Far</option></select></label>
+          <label class="settingRow"><span>Show Coordinates</span><input id="showCoords" type="checkbox" checked></label>
+          <label class="settingRow"><span>Crosshair Size</span><select id="crossSize"><option>Small</option><option selected>Normal</option><option>Large</option></select></label>
+        </div>
+      </div>
+
+      <div id="createModal" class="modal">
+        <div class="modalCard">
+          <div class="heading" style="margin-top:0">Create New World</div>
+          <div class="form">
+            <div><label>World Name</label><input id="worldName" value="My New World"></div>
+            <div><label>Game Mode</label><div class="modes"><button class="mode active" data-mode="Survival">Survival</button><button class="mode" data-mode="Creative">Creative</button></div></div>
+            <div><label>World Type</label><select id="worldType"><option>Normal</option><option>Flat</option><option>Mountainous</option><option>Island</option></select></div>
+            <div><label>Seed</label><input id="seed" placeholder="Leave blank for random"></div>
+          </div>
+          <div class="actions"><button id="cancelCreate" class="pixelBtn">Cancel</button><button id="doCreate" class="pixelBtn green">Create</button></div>
+        </div>
+      </div>
+      <div id="editWorldModal" class="modal">
+        <div class="modalCard">
+          <div class="heading" style="margin-top:0">World Settings</div>
+          <div class="worldEditGrid">
+            <div><label>World Name</label><input id="editWorldName"></div>
+            <div><label>Game Mode</label><select id="editWorldMode"><option>Survival</option><option>Creative</option></select></div>
+            <div><label>Difficulty</label><select id="editWorldDifficulty"><option>Peaceful</option><option>Easy</option><option>Normal</option><option>Hard</option></select></div>
+            <div><label>World Type</label><select id="editWorldType"><option>Normal</option><option>Flat</option><option>Mountainous</option><option>Island</option></select></div>
+            <div><label>Seed</label><input id="editWorldSeed" readonly></div>
+          </div>
+          <div class="actions">
+            <button id="deleteWorld" class="pixelBtn editWorldDanger">Delete World</button>
+            <button id="cancelEditWorld" class="pixelBtn">Cancel</button>
+            <button id="saveEditWorld" class="pixelBtn green">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="game" class="screen">
+  <canvas id="view"></canvas><div id="cross"></div>
+  <div id="gameTop">
+    <div>
+      <div class="gpill" id="worldLabel">World</div>
+      <div class="gpill" id="coords" style="margin-top:6px">0,0,0</div>
+    </div>
+    <div class="topRightTools">
+      <button id="statsBtn" class="hudBtn">Stats</button>
+      <button id="pauseOpen" class="hudBtn">Ⅱ Pause</button>
+    </div>
+  </div>
+  <div id="statsPanel">
+    <div class="statsGrid">
+      <b>BlockForge</b><span>Prototype 0.9</span>
+      <b>World</b><span id="statWorld">—</span>
+      <b>Game mode</b><span id="statMode">—</span>
+      <b>Difficulty</b><span id="statDifficulty">—</span>
+      <b>XYZ</b><span id="statXYZ">0 / 0 / 0</span>
+      <b>Block</b><span id="statBlock">0 / 0 / 0</span>
+      <b>Facing</b><span id="statFacing">—</span>
+      <b>Target</b><span id="statTarget">—</span>
+      <b>Velocity</b><span id="statVelocity">—</span>
+      <b>Seed</b><span id="statSeed">—</span>
+      <b>World type</b><span id="statWorldType">—</span>
+      <b>Loaded blocks</b><span id="statBlocks">0</span>
+      <b>FPS</b><span id="statFPS">—</span>
+    </div>
+  </div>
+  <div class="breakRing" id="breakRing"><div class="breakFill" id="breakFill"></div></div>
+  <div id="bottomHud">
+    <div id="armourRow" class="armourRow"></div>
+    <div class="bars"><div id="hearts" class="barGroup"></div><div id="foods" class="barGroup"></div></div>
+    <div id="hotbar" class="hotbar"></div>
+  </div>
+  <div class="mobile">
+    <div class="buildButtons" id="buildButtons">
+      <button id="place" class="actionTextBtn">Place</button>
+      <button id="breakCreative" class="actionTextBtn">Break</button>
+    </div>
+    <div id="joy" class="joy"><div id="stick" class="stick"></div></div>
+    <button id="mobileInv" class="invBtn">Inventory</button>
+    <div class="acts">
+      <button id="jump" aria-label="Jump or fly up">↑</button>
+      <button id="crouch" aria-label="Crouch or fly down">↓</button>
+      <button id="sprint">⇧</button>
+    </div>
+  </div>
+
+  <div id="pauseOverlay" class="overlay">
+    <div class="pauseCard pauseSettings">
+      <div class="heading">Pause Menu <span id="difficultyBadge"></span></div>
+      <div class="pauseTabs">
+        <button class="pauseTab active" data-pause-tab="game">Game</button>
+        <button class="pauseTab" data-pause-tab="controls">Controls</button>
+        <button class="pauseTab" data-pause-tab="video">Video</button>
+        <button class="pauseTab" data-pause-tab="world">World</button>
+      </div>
+
+      <div id="pause-game" class="pauseSection active">
+        <div class="pauseGrid">
+          <div class="pauseSetting">
+            <label>Game Mode</label>
+            <select id="pauseGameMode"><option>Survival</option><option>Creative</option></select>
+            <div class="ruleNote">Changing mode takes effect immediately.</div>
+          </div>
+          <div class="pauseSetting">
+            <label>Difficulty</label>
+            <select id="pauseDifficulty"><option>Peaceful</option><option>Easy</option><option selected>Normal</option><option>Hard</option></select>
+            <div class="ruleNote">Changes hunger drain and survival damage.</div>
+          </div>
+          <div class="pauseSetting">
+            <label>Show Coordinates</label>
+            <select id="pauseCoords"><option value="on">On</option><option value="off">Off</option></select>
+          </div>
+          <div class="pauseSetting">
+            <label>Keep Inventory</label>
+            <select id="keepInventory"><option value="off">Off</option><option value="on">On</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div id="pause-controls" class="pauseSection">
+        <div class="pauseGrid">
+          <div class="pauseSetting"><label>Look Sensitivity</label><input id="pauseSensitivity" type="range" min="2" max="12" value="6"></div>
+          <div class="pauseSetting"><label>Crosshair Size</label><select id="pauseCrossSize"><option>Small</option><option selected>Normal</option><option>Large</option></select></div>
+          <div class="pauseSetting"><label>Auto Jump</label><select id="autoJump"><option value="off">Off</option><option value="on">On</option></select></div>
+          <div class="pauseSetting"><label>Sprint Mode</label><select id="sprintMode"><option value="toggle">Toggle</option><option value="hold">Hold</option></select></div>
+        </div>
+      </div>
+
+      <div id="pause-video" class="pauseSection">
+        <div class="pauseGrid">
+          <div class="pauseSetting"><label>Render Distance</label><select id="pauseRenderDistance"><option>Short</option><option selected>Normal</option><option>Far</option></select></div>
+          <div class="pauseSetting"><label>Field of View</label><input id="fovRange" type="range" min="60" max="95" value="74"></div>
+          <div class="pauseSetting"><label>Fog</label><select id="fogToggle"><option value="on">On</option><option value="off">Off</option></select></div>
+          <div class="pauseSetting"><label>Day / Night Cycle</label><select id="dayCycle"><option value="on">On</option><option value="off">Off</option></select></div>
+        </div>
+      </div>
+
+      <div id="pause-world" class="pauseSection">
+        <div class="pauseGrid">
+          <div class="pauseSetting"><label>World</label><input id="pauseWorldName" readonly></div>
+          <div class="pauseSetting"><label>Seed</label><input id="pauseSeed" readonly></div>
+          <div class="pauseSetting"><label>World Type</label><input id="pauseWorldType" readonly></div>
+          <div class="pauseSetting"><label>Time</label><select id="worldTime"><option value="cycle">Cycle</option><option value="day">Day</option><option value="night">Night</option></select></div>
+        </div>
+      </div>
+
+      <div class="pauseActions">
+        <button id="resume" class="pixelBtn green">Resume</button>
+        <button id="inventoryBtn" class="pixelBtn">Inventory</button>
+        <button id="saveExit" class="pixelBtn">Save & Exit</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="inventoryOverlay" class="overlay">
+    <div class="inventoryWindow">
+      <div class="invHeader">
+        <div id="inventoryTitle">Inventory</div>
+        <button id="closeInvTop" class="invCloseTop" aria-label="Close inventory">×</button>
+      </div>
+      <div class="inventoryBody">
+        <div id="survivalInventory" class="inventoryMode">
+          <div class="recipePanel">
+            <div class="recipeTabs">
+              <button class="recipeTab active" data-recipe-cat="all">All</button>
+              <button class="recipeTab" data-recipe-cat="building">Blocks</button>
+              <button class="recipeTab" data-recipe-cat="tools">Tools</button>
+              <button class="recipeTab" data-recipe-cat="items">Items</button>
+            </div>
+            <input id="recipeSearch" class="invSearch" placeholder="Search recipes" autocomplete="off">
+            <div id="recipeList" class="recipeList"></div>
+          </div>
+          <div class="survivalRight">
+            <div class="upperInv">
+              <div class="playerPanel">
+                <div class="armourSlots">
+                  <div class="armourSlot">HEAD</div><div class="armourSlot">BODY</div><div class="armourSlot">LEGS</div><div class="armourSlot">FEET</div>
+                </div>
+                <div class="playerModel" aria-label="Player preview"></div>
+              </div>
+              <div class="craftingPanel">
+                <div class="craftingTitle">Crafting <button id="craftSizeToggle" type="button" style="display:none;margin-left:8px">Use 3×3 Table</button></div>
+                <div class="craftingRow">
+                  <div id="craftGrid" class="craftGrid"></div>
+                  <div style="font-size:1.5rem">→</div><button id="craftOut" class="craftOut" aria-label="Craft output">?</button>
+                </div>
+              </div>
+            </div>
+            <div class="invSectionTitle">Inventory</div><div id="survivalStorage" class="storageGrid"></div>
+            <div class="invSectionTitle" style="margin-top:8px">Hotbar</div><div id="survivalHotbarMirror" class="storageGrid hotbarMirror"></div>
+          </div>
+        </div>
+        <div id="creativeInventory" class="inventoryMode">
+          <div class="creativeTabs">
+            <button class="creativeTab active" data-creative-cat="all">All</button>
+            <button class="creativeTab" data-creative-cat="blocks">Blocks</button>
+            <button class="creativeTab" data-creative-cat="tools">Tools</button>
+            <button class="creativeTab" data-creative-cat="natural">Natural</button>
+          </div>
+          <input id="creativeSearch" class="invSearch" placeholder="Search every block and item" autocomplete="off">
+          <div id="creativeGrid" class="creativeItemGrid"></div>
+          <div><div class="invSectionTitle">Hotbar</div><div id="creativeHotbarMirror" class="storageGrid hotbarMirror"></div></div>
+        </div>
+      </div>
+      <button id="closeInv" class="pixelBtn invBottomBtn">Back to Game</button>
+    </div>
+  </div>
+  <div id="miningHint" class="miningHint"></div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+window.addEventListener('error',e=>{
+  const t=document.getElementById('toast');
+  if(t){t.textContent='BlockForge error: '+(e.message||'unknown error');t.classList.add('show')}
+});
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const menu=$('#menu'),game=$('#game');
+
+const AUTH_USERS_KEY='blockforge_users_v1';
+const AUTH_SESSION_KEY='blockforge_session_v1';
+
+const WORLD_STORE_KEY='blockforge_worlds_v2';
+let currentUsername='';
+
+function loadAllWorlds(){
+  try{return JSON.parse(localStorage.getItem(WORLD_STORE_KEY)||'{}')}catch{return {}}
+}
+function getUserWorlds(){
+  const all=loadAllWorlds();
+  return all[(currentUsername||'').toLowerCase()]||[];
+}
+function saveUserWorlds(worlds){
+  const all=loadAllWorlds();
+  all[(currentUsername||'').toLowerCase()]=worlds;
+  localStorage.setItem(WORLD_STORE_KEY,JSON.stringify(all));
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+}
+function renderWorldList(){
+  const list=$('#worldList'); if(!list)return;
+  const worlds=getUserWorlds();
+  if(!worlds.length){
+    list.innerHTML='<div class="emptyWorlds"><b>No worlds yet.</b><br>Create your first BlockForge world with <b>Create New</b>.</div>';
+    return;
+  }
+  list.innerHTML=worlds.map((w,i)=>`
+    <div class="worldRow" data-index="${i}" data-name="${escapeHtml(w.name)}" data-mode="${w.mode}" data-type="${w.type}" data-seed="${escapeHtml(w.seed)}" data-difficulty="${w.difficulty||'Normal'}">
+      <div class="thumb ${w.type==='Island'?'island':''}"></div>
+      <div><div class="wName">${escapeHtml(w.name)}</div><div class="sub">${w.mode}</div></div>
+      <div class="meta">${new Date(w.updatedAt||w.createdAt||Date.now()).toLocaleDateString()}<br>Local World</div>
+      <button class="pixelBtn green edit" aria-label="Edit world">✎</button>
+    </div>`).join('');
+}
+
+
+function loadUsers(){
+  try{return JSON.parse(localStorage.getItem(AUTH_USERS_KEY)||'{}')}catch{return {}}
+}
+function saveUsers(users){localStorage.setItem(AUTH_USERS_KEY,JSON.stringify(users))}
+function hashPassword(str){
+  let h1=0x811c9dc5,h2=0x9e3779b9;
+  for(let i=0;i<str.length;i++){
+    const c=str.charCodeAt(i);
+    h1=Math.imul(h1^c,16777619);
+    h2=Math.imul(h2^(c+i),2246822519);
+  }
+  return (h1>>>0).toString(16).padStart(8,'0')+(h2>>>0).toString(16).padStart(8,'0');
+}
+function validUsername(u){return /^[A-Za-z0-9_]{3,16}$/.test(u)}
+function validPassword(p){
+  return p.length>=8 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /[^A-Za-z0-9]/.test(p) && !/\s/.test(p)
+}
+function openAuth(){
+  $('#authScreen').style.display='flex';
+  $('#authUserBar').classList.remove('show');
+}
+function enterApp(username){
+  currentUsername=username;
+  localStorage.setItem(AUTH_SESSION_KEY,username);
+  $('#authScreen').style.display='none';
+  $('#signedInAs').textContent='Signed in as '+username;
+  $('#authUserBar').classList.add('show');
+  renderWorldList();
+}
+$$('.authTab').forEach(b=>b.onclick=()=>{
+  $$('.authTab').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  $$('.authPane').forEach(p=>p.classList.remove('active'));
+  $('#'+b.dataset.auth+'Pane').classList.add('active');
+});
+$('#signupBtn').onclick=()=>{
+  const u=$('#signupUser').value.trim(),p=$('#signupPass').value,p2=$('#signupPass2').value,err=$('#signupError');
+  err.textContent='';
+  if(!validUsername(u)){err.textContent='Username must be 3–16 characters using letters, numbers or underscores.';return}
+  if(!validPassword(p)){err.textContent='Password must be at least 8 characters and include uppercase, lowercase and a special character, with no spaces.';return}
+  if(p!==p2){err.textContent='Passwords do not match.';return}
+  const users=loadUsers();
+  if(users[u.toLowerCase()]){err.textContent='That username is already taken.';return}
+  users[u.toLowerCase()]={username:u,passwordHash:hashPassword(p),createdAt:Date.now()};
+  saveUsers(users);enterApp(u);
+};
+$('#signinBtn').onclick=()=>{
+  const u=$('#signinUser').value.trim(),p=$('#signinPass').value,err=$('#signinError');err.textContent='';
+  const users=loadUsers(),rec=users[u.toLowerCase()];
+  if(!rec||rec.passwordHash!==hashPassword(p)){err.textContent='Incorrect username or password.';return}
+  enterApp(rec.username);
+};
+$('#signOutBtn').onclick=()=>{
+  localStorage.removeItem(AUTH_SESSION_KEY);
+  document.exitPointerLock?.();
+  game.classList.remove('active');menu.classList.add('active');
+  openAuth();
+};
+const existingSession=localStorage.getItem(AUTH_SESSION_KEY);
+if(existingSession){
+  const rec=loadUsers()[existingSession.toLowerCase()];
+  if(rec) enterApp(rec.username); else openAuth();
+}else openAuth();
+
+let chosenMode='Survival';
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$$('.panel').forEach(p=>p.classList.remove('active'));$('#'+b.dataset.tab).classList.add('active')});
+const tutorialCopy={
+  movement:'The crosshair stays fixed in the exact centre of the screen. Drag the world view to look around; the screen moves while the crosshair does not. The joystick is on the left. Tap Sprint to toggle sprinting on and off; sprinting carries into jumps, drains hunger faster, and is disabled when hunger is too low. Use the ↑ button to jump. In Creative, double tap it to fly and after flying, press and hold it to rise and hold crouch to descend and double tap crouch to stop flying.',
+  placing:'Choose a block in the hotbar. Move the view until the centre crosshair is on the face of the block you want to build against, then press Place. You can also jump and place a block directly beneath your feet as long as the new block does not overlap your body.',
+  breaking:'Creative: aim the centre crosshair at a block and press Break; it disappears instantly. Survival: there is no Break button. Aim at the block, then press and hold on the world until the block finishes breaking.',
+  inventory:'Tap a hotbar slot to select it. Open Inventory to see what you have collected. Creative has unlimited building blocks; Survival uses the quantities you collect.',
+  survival:'In Survival you gather blocks, manage health and hunger, and blocks take different amounts of time to break. Hold on the targeted block to mine it. The correct Pickaxe, Axe or Shovel mines much faster, with Wooden, Stone, Copper, Iron, Diamond, Netherite and Obsidian tool tiers becoming progressively faster.',
+  creative:'Creative has no health, hunger or armour HUD and gives unlimited access to every BlockForge item/block in the Creative inventory. Place with Place and instantly destroy the targeted block with Break. Double tap Jump to fly; while flying hold Jump to rise, hold Crouch to descend, and double tap Crouch to stop flying.'
+};
+$$('.tutorialCard').forEach(b=>b.onclick=()=>$('#tutorialText').textContent=tutorialCopy[b.dataset.tutorial]||'');
+let lookSensitivity=.006;
+$('#sensitivity').oninput=e=>lookSensitivity=Number(e.target.value)*.001;
+$('#showCoords').onchange=e=>$('#coords').style.display=e.target.checked?'block':'none';
+$('#crossSize').onchange=e=>{$('#cross').classList.remove('small','large');if(e.target.value==='Small')$('#cross').classList.add('small');if(e.target.value==='Large')$('#cross').classList.add('large')};
+
+$('#newBtn').onclick=()=>$('#createModal').classList.add('open');$('#cancelCreate').onclick=()=>$('#createModal').classList.remove('open');
+$$('.mode').forEach(b=>b.onclick=()=>{$$('.mode').forEach(x=>x.classList.remove('active'));b.classList.add('active');chosenMode=b.dataset.mode});
+let editingWorldIndex=-1;
+function openWorldEditor(index){
+ const worlds=getUserWorlds(),w=worlds[index];if(!w)return;
+ editingWorldIndex=index;
+ $('#editWorldName').value=w.name;
+ $('#editWorldMode').value=w.mode;
+ $('#editWorldDifficulty').value=w.difficulty||'Normal';
+ $('#editWorldType').value=w.type;
+ $('#editWorldSeed').value=w.seed;
+ $('#editWorldModal').classList.add('open')
+}
+$('#worldList').addEventListener('pointerdown',e=>{
+ if(!e.target.closest('.edit'))return;
+ e.preventDefault();e.stopPropagation();
+ const r=e.target.closest('.worldRow');if(!r)return;
+ openWorldEditor(Number(r.dataset.index))
+});
+$('#worldList').addEventListener('click',e=>{
+ const r=e.target.closest('.worldRow');if(!r)return;
+ const idx=Number(r.dataset.index);
+ if(e.target.closest('.edit')){e.preventDefault();e.stopPropagation();return}
+ startWorld(r.dataset.name,r.dataset.mode,r.dataset.type,r.dataset.seed,r.dataset.difficulty||'Normal')
+});
+$('#cancelEditWorld').onclick=()=>$('#editWorldModal').classList.remove('open');
+$('#saveEditWorld').onclick=()=>{
+ const worlds=getUserWorlds(),w=worlds[editingWorldIndex];if(!w)return;
+ w.name=$('#editWorldName').value.trim()||w.name;
+ w.mode=$('#editWorldMode').value;
+ w.difficulty=$('#editWorldDifficulty').value;
+ w.type=$('#editWorldType').value;
+ w.updatedAt=Date.now();
+ saveUserWorlds(worlds);renderWorldList();$('#editWorldModal').classList.remove('open');toast('World settings saved')
+};
+$('#deleteWorld').onclick=()=>{
+ const worlds=getUserWorlds();if(editingWorldIndex<0||editingWorldIndex>=worlds.length)return;
+ const name=worlds[editingWorldIndex].name;
+ if(!confirm('Delete "'+name+'"? This cannot be undone.'))return;
+ worlds.splice(editingWorldIndex,1);saveUserWorlds(worlds);renderWorldList();$('#editWorldModal').classList.remove('open');toast('World deleted')
+};
+$('#doCreate').onclick=()=>{
+ const n=$('#worldName').value.trim()||'My World';
+ const s=$('#seed').value||String(Math.floor(Math.random()*99999999));
+ const t=$('#worldType').value;
+ const worlds=getUserWorlds();
+ worlds.unshift({name:n,mode:chosenMode,difficulty:'Normal',type:t,seed:s,createdAt:Date.now(),updatedAt:Date.now()});
+ saveUserWorlds(worlds);renderWorldList();
+ $('#createModal').classList.remove('open');
+ startWorld(n,chosenMode,t,s,'Normal')
+};
+
+let scene,camera,renderer,raycaster,clock,skyLight,sun;
+let blocks=new Map(), meshes=[], yaw=0,pitch=0,vel=new THREE.Vector3(),keys={},mobileMove={x:0,y:0};
+let mode='Survival',worldName='World',worldSeed=1,worldType='Normal',health=20,hunger=20,armour=0,onGround=false,lastHunger=0,difficulty='Normal',keepInv=false,dayNight=true,fogEnabled=true,forcedTime='cycle',fps=0,fpsFrames=0,fpsStamp=performance.now(),flying=false,flyRise=false,flyDescend=false,lastJumpTap=0,lastCrouchTap=0;
+let mining=false,miningTarget=null,miningStart=0,breakDuration=650,crackMesh=null,crackStage=-1;
+let selectedSlot=0,creativeCategory='all',recipeCategory='all',craftSize=2,craftSlots=Array(9).fill(null),dragCraftItem=null;
+const PLAYER_RADIUS=.30,PLAYER_HEIGHT=1.80,EYE_HEIGHT=1.62;
+let sprintEnabled=false,sprintHungerClock=0;
+const BLOCKS={
+ grass:{name:'Grass',color:0x5f9b48,hardness:.75,tool:'shovel',category:'natural'},
+ dirt:{name:'Dirt',color:0x79583a,hardness:.75,tool:'shovel',category:'natural'},
+ stone:{name:'Stone',color:0x777b80,hardness:5.0,tool:'pickaxe',category:'natural'},
+ wood:{name:'Wood',color:0x86572f,hardness:2.8,tool:'axe',category:'natural'},
+ sand:{name:'Sand',color:0xd5c16b,hardness:.6,tool:'shovel',category:'natural'},
+ water:{name:'Water',color:0x4682c5,hardness:999,tool:null,category:'natural',breakable:false},
+ coal:{name:'Coal Ore',color:0x303237,hardness:5.4,tool:'pickaxe',category:'natural'},
+ copper:{name:'Copper Ore',color:0xb76b3c,hardness:5.6,tool:'pickaxe',category:'natural'},
+ planks:{name:'Planks',color:0xa97b46,hardness:1.5,tool:'axe',category:'blocks'},
+ crafting:{name:'Crafting Table',color:0x9b6b38,hardness:3.0,tool:'axe',category:'blocks'}
+};
+const TOOL_TIERS={
+ wooden:{name:'Wooden',speed:2,color:'#9a6d3f'},stone:{name:'Stone',speed:4,color:'#76797c'},
+ copper:{name:'Copper',speed:5,color:'#b86c43'},iron:{name:'Iron',speed:6,color:'#c4c9cb'},
+ diamond:{name:'Diamond',speed:8,color:'#55cbd1'},netherite:{name:'Netherite',speed:9.5,color:'#4b4147'},
+ obsidian:{name:'Obsidian',speed:12,color:'#332c4d'}
+};
+const TOOLS={};
+for(const [tier,t] of Object.entries(TOOL_TIERS)){
+ for(const cls of ['pickaxe','axe','shovel']){
+   const id=`${tier}_${cls}`;
+   TOOLS[id]={id,name:`${t.name} ${cls[0].toUpperCase()+cls.slice(1)}`,tier,toolClass:cls,speed:t.speed,color:t.color,category:'tools'}
+ }
+}
+const ITEMS={stick:{id:'stick',name:'Stick',category:'items',color:'#9b7047'},...TOOLS};
+const ITEM_DEFS={...BLOCKS,...ITEMS};
+let hotbarSlots=['grass','dirt','stone','wood','sand','coal','copper','planks','crafting'];
+let selected=hotbarSlots[0];
+let inventory={};for(const id of Object.keys(ITEM_DEFS))inventory[id]=0;
+
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>e.classList.remove('show'),1500)}
+function texFor(type){
+ const c=document.createElement('canvas');c.width=c.height=32;const x=c.getContext('2d');
+ const px=(xx,yy,w,h,col)=>{x.fillStyle=col;x.fillRect(xx,yy,w,h)};
+ let seed=type.split('').reduce((a,ch)=>(a*33+ch.charCodeAt(0))>>>0,5381);
+ const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
+
+ if(type==='grass'){
+   px(0,0,32,32,'#6d5338');
+   for(let i=0;i<65;i++)px(Math.floor(rnd()*32),7+Math.floor(rnd()*25),1+Math.floor(rnd()*2),1+Math.floor(rnd()*2),rnd()>.5?'#765b3e':'#5f482f');
+   px(0,0,32,8,'#4f893f');px(0,0,32,2,'#6aa655');
+   for(let i=0;i<28;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*8),1+Math.floor(rnd()*2),1+Math.floor(rnd()*2),rnd()>.5?'#3d7333':'#79ad59');
+ }else if(type==='dirt'){
+   px(0,0,32,32,'#78583c');
+   for(let i=0;i<95;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*3),1+Math.floor(rnd()*2),rnd()>.55?'#8a6748':'#60442f');
+ }else if(type==='stone'){
+   px(0,0,32,32,'#7c8082');
+   for(let i=0;i<75;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*4),1+Math.floor(rnd()*3),rnd()>.5?'#8d9294':'#666a6d');
+   x.strokeStyle='#5e6264';x.lineWidth=1;
+   for(let i=0;i<5;i++){x.beginPath();x.moveTo(rnd()*32,rnd()*32);x.lineTo(rnd()*32,rnd()*32);x.stroke()}
+ }else if(type==='wood'){
+   px(0,0,32,32,'#8a5c34');
+   for(let xx=3;xx<32;xx+=7)px(xx,0,2,32,xx%2?'#704523':'#a06c3c');
+   for(let i=0;i<18;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1,3,'rgba(55,30,15,.35)');
+ }else if(type==='sand'){
+   px(0,0,32,32,'#d8c675');
+   for(let i=0;i<85;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*2),1+Math.floor(rnd()*2),rnd()>.5?'#ead98b':'#bfae60');
+ }else if(type==='coal'){
+   px(0,0,32,32,'#777b7e');
+   for(let i=0;i<45;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*3),1+Math.floor(rnd()*2),rnd()>.5?'#898d90':'#64686a');
+   for(let i=0;i<13;i++)px(2+Math.floor(rnd()*26),2+Math.floor(rnd()*26),3+Math.floor(rnd()*4),3+Math.floor(rnd()*4),'#222426');
+ }else if(type==='copper'){
+   px(0,0,32,32,'#777b7e');
+   for(let i=0;i<45;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*3),1+Math.floor(rnd()*2),rnd()>.5?'#898d90':'#64686a');
+   for(let i=0;i<12;i++)px(2+Math.floor(rnd()*26),2+Math.floor(rnd()*26),3+Math.floor(rnd()*4),3+Math.floor(rnd()*4),rnd()>.3?'#c97747':'#4f9b83');
+ }else if(type==='planks'){
+   px(0,0,32,32,'#b2834e');
+   for(let yy=7;yy<32;yy+=8)px(0,yy,32,2,'#79542f');
+   for(let yy=0;yy<32;yy+=8){const off=(yy/8)%2?16:0;px(off,yy,2,8,'#79542f')}
+   for(let i=0;i<18;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),2,1,'rgba(80,45,20,.25)');
+ }else if(type==='crafting'){
+   px(0,0,32,32,'#9e6937');px(2,2,28,28,'#a97640');
+   x.strokeStyle='#513119';x.lineWidth=2;x.strokeRect(3,3,26,26);
+   px(4,10,24,2,'#513119');px(10,4,2,24,'#513119');px(20,4,2,24,'#513119');
+ }else if(type==='water'){
+   px(0,0,32,32,'#3d82bd');
+   for(let yy=4;yy<32;yy+=7){px(0,yy,32,2,'rgba(140,210,255,.25)')}
+ }else{
+   const base='#'+BLOCKS[type].color.toString(16).padStart(6,'0');px(0,0,32,32,base);
+   for(let i=0;i<70;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*3),1+Math.floor(rnd()*3),rnd()>.5?'rgba(255,255,255,.08)':'rgba(0,0,0,.1)')
+ }
+ const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;return t
+}
+let mats={};
+function init3D(){
+ scene=new THREE.Scene();scene.background=new THREE.Color(0x77c9f4);scene.fog=new THREE.Fog(0x77c9f4,28,86);
+ camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,.1,500);renderer=new THREE.WebGLRenderer({canvas:$('#view'),antialias:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);
+ Object.keys(BLOCKS).forEach(k=>mats[k]=new THREE.MeshLambertMaterial({map:texFor(k),transparent:k==='water',opacity:k==='water'?.68:1}));initCrackMaterials();
+ skyLight=new THREE.HemisphereLight(0xccecff,0x40502d,1.2);scene.add(skyLight);sun=new THREE.DirectionalLight(0xffffff,1.15);sun.position.set(20,30,15);scene.add(sun);
+ raycaster=new THREE.Raycaster();clock=new THREE.Clock();setupInput();animate();
+}
+function posKey(x,y,z){return x+','+y+','+z}
+function addBlock(x,y,z,type){const k=posKey(x,y,z);if(blocks.has(k))return;const m=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mats[type]);m.position.set(x,y,z);m.userData={x,y,z,type};scene.add(m);blocks.set(k,m);meshes.push(m)}
+function delBlock(m){if(!m)return;blocks.delete(posKey(m.userData.x,m.userData.y,m.userData.z));const i=meshes.indexOf(m);if(i>=0)meshes.splice(i,1);scene.remove(m);m.geometry.dispose()}
+function hseed(s){let h=2166136261;for(const ch of String(s)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function rnd(x,z,s){const n=Math.sin(x*127.1+z*311.7+s*.00013)*43758.5453;return n-Math.floor(n)}
+function height(x,z,s,type){if(type==='Flat')return 3;let h=3+Math.floor((Math.sin((x+s%17)*.23)+Math.cos((z-s%23)*.21)+2)*.9+rnd(x,z,s)*1.4);if(type==='Mountainous')h+=Math.floor(Math.abs(Math.sin(x*.16)*Math.cos(z*.18))*7);if(type==='Island'){const d=Math.hypot(x,z);h=Math.floor(7-d*.23+rnd(x,z,s)*2)}return h}
+function cave(x,y,z,s){if(y>3)return false;return Math.sin(x*.72+s*.001)+Math.sin(z*.66)+Math.cos(y*1.2+x*.19)>2.25}
+function buildWorld(seed,type){
+ blocks.forEach(m=>{scene.remove(m);m.geometry.dispose()});blocks.clear();meshes=[];const s=hseed(seed),size=22;
+ for(let x=-size;x<=size;x++)for(let z=-size;z<=size;z++){let hh=height(x,z,s,type);if(type==='Island'&&hh<1)continue;for(let y=0;y<=hh;y++){if(cave(x,y,z,s))continue;let t=y===hh?'grass':y>hh-3?'dirt':'stone';const r=rnd(x*5+y,z*7,s);if(y<hh-2&&r>.972)t='coal';else if(y<hh-2&&r>.95)t='copper';addBlock(x,y,z,t)}
+ if(hh>2&&rnd(x*9,z*13,s)>.988){for(let y=hh+1;y<=hh+3;y++)addBlock(x,y,z,'wood');for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)if(!(dx===0&&dz===0))addBlock(x+dx,hh+4,z+dz,'grass')}
+ }
+}
+function playerAABB(pos){const feet=pos.y-EYE_HEIGHT;return{minX:pos.x-PLAYER_RADIUS,maxX:pos.x+PLAYER_RADIUS,minY:feet,maxY:feet+PLAYER_HEIGHT,minZ:pos.z-PLAYER_RADIUS,maxZ:pos.z+PLAYER_RADIUS}}
+function isSolidBlock(b){return !!b&&b.userData.type!=='water'}
+function collidesAt(pos){
+ const a=playerAABB(pos),x0=Math.floor(a.minX-.5),x1=Math.ceil(a.maxX+.5),y0=Math.floor(a.minY-.5),y1=Math.ceil(a.maxY+.5),z0=Math.floor(a.minZ-.5),z1=Math.ceil(a.maxZ+.5);
+ for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++){
+   const b=blocks.get(posKey(x,y,z));if(!isSolidBlock(b))continue;
+   if(a.maxX>x-.5&&a.minX<x+.5&&a.maxY>y-.5&&a.minY<y+.5&&a.maxZ>z-.5&&a.minZ<z+.5)return true
+ }
+ return false
+}
+function moveHorizontal(delta){
+ const px=camera.position.clone();px.x+=delta.x;if(!collidesAt(px))camera.position.x=px.x;
+ const pz=camera.position.clone();pz.z+=delta.z;if(!collidesAt(pz))camera.position.z=pz.z
+}
+function moveVertical(dy){if(!dy)return;const p=camera.position.clone();p.y+=dy;if(!collidesAt(p)){camera.position.y=p.y;onGround=false}else{if(dy<0)onGround=true;vel.y=0}}
+function standingOnBlock(){const p=camera.position.clone();p.y-=.055;return collidesAt(p)}
+function spawnEyeY(x,z,seed,type){const terrain=height(Math.round(x),Math.round(z),hseed(seed),type);return terrain+.5+EYE_HEIGHT+.02}
+function resetInv(){
+ for(const k in inventory)inventory[k]=mode==='Creative'?64:0;
+ if(mode==='Survival'){inventory.dirt=8;inventory.wood=4}
+ hotbarSlots=mode==='Creative'
+   ?['grass','dirt','stone','wood','sand','coal','copper','planks','crafting']
+   :['dirt','wood',null,null,null,null,null,null,null];
+ selectedSlot=0;selected=hotbarSlots[0]||null;
+ renderHotbar();renderInventory()
+}
+function startWorld(n,m,t,s,diff='Normal'){if(!renderer)init3D();worldName=n;mode=m;worldType=t;worldSeed=s;difficulty=diff||'Normal';health=hunger=20;flying=false;flyRise=false;flyDescend=false;sprintEnabled=false;$('#sprint').dataset.on='0';buildWorld(s,t);resetInv();camera.position.set(0,10,8);yaw=0;pitch=-.2;vel.set(0,0,0);camera.position.y=spawnEyeY(0,8,s,t);$('#worldLabel').textContent=n+' • '+m;$('#pauseGameMode').value=m;$('#pauseDifficulty').value=difficulty;$('#pauseWorldName').value=n;$('#pauseSeed').value=s;$('#pauseWorldType').value=t;updateDifficultyBadge();menu.classList.remove('active');game.classList.add('active');$('#authUserBar').classList.remove('show');renderBars();updateCreativeControls();if($('#breakCreative')) $('#breakCreative').style.display=(m==='Creative'?'block':'none');toast(n+' loaded')}
+
+const previewCache={};
+function blockPreview(type){
+ if(previewCache[type])return previewCache[type];
+ const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d');
+ let seed=type.split('').reduce((a,ch)=>(a*33+ch.charCodeAt(0))>>>0,5381);
+ const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
+ const px=(xx,yy,w,h,col)=>{g.fillStyle=col;g.fillRect(xx,yy,w,h)};
+ if(type==='grass'){px(0,0,32,32,'#76583b');px(0,0,32,8,'#4f893f');for(let i=0;i<45;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*2),1+Math.floor(rnd()*2),rnd()>.5?'rgba(255,255,255,.09)':'rgba(0,0,0,.13)')}
+ else if(type==='dirt'){px(0,0,32,32,'#78583c');for(let i=0;i<80;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*3),1+Math.floor(rnd()*2),rnd()>.5?'#8a6748':'#60442f')}
+ else if(type==='stone'){px(0,0,32,32,'#7c8082');for(let i=0;i<65;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1+Math.floor(rnd()*4),1+Math.floor(rnd()*3),rnd()>.5?'#929698':'#626668')}
+ else if(type==='wood'){px(0,0,32,32,'#8a5c34');for(let xx=3;xx<32;xx+=7)px(xx,0,2,32,xx%2?'#704523':'#a06c3c')}
+ else if(type==='sand'){px(0,0,32,32,'#d8c675');for(let i=0;i<65;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),1,1,rnd()>.5?'#ead98b':'#b9a758')}
+ else if(type==='coal'||type==='copper'){px(0,0,32,32,'#777b7e');for(let i=0;i<11;i++)px(2+Math.floor(rnd()*25),2+Math.floor(rnd()*25),3+Math.floor(rnd()*4),3+Math.floor(rnd()*4),type==='coal'?'#222426':(rnd()>.3?'#c97747':'#4f9b83'))}
+ else if(type==='planks'){px(0,0,32,32,'#b2834e');for(let yy=7;yy<32;yy+=8)px(0,yy,32,2,'#79542f');for(let yy=0;yy<32;yy+=8)px(((yy/8)%2)*16,yy,2,8,'#79542f')}
+ else if(type==='crafting'){px(0,0,32,32,'#a97640');g.strokeStyle='#513119';g.lineWidth=2;g.strokeRect(3,3,26,26);px(4,10,24,2,'#513119');px(10,4,2,24,'#513119');px(20,4,2,24,'#513119')}
+ else {px(0,0,32,32,'#'+BLOCKS[type].color.toString(16).padStart(6,'0'))}
+ previewCache[type]=c.toDataURL('image/png');return previewCache[type]
+}
+
+
+const itemPreviewCache={};
+function itemPreview(id){
+ if(BLOCKS[id])return blockPreview(id);
+ if(itemPreviewCache[id])return itemPreviewCache[id];
+ const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d');g.clearRect(0,0,32,32);
+ if(TOOLS[id]){
+   const t=TOOLS[id];g.strokeStyle=t.color;g.fillStyle=t.color;g.lineCap='square';
+   g.lineWidth=5;g.beginPath();g.moveTo(10,25);g.lineTo(21,10);g.stroke();
+   g.strokeStyle='#5c3b24';g.lineWidth=4;g.beginPath();g.moveTo(8,27);g.lineTo(17,17);g.stroke();
+   g.strokeStyle=t.color;g.fillStyle=t.color;g.lineWidth=5;
+   if(t.toolClass==='pickaxe'){g.beginPath();g.moveTo(8,9);g.lineTo(25,7);g.stroke()}
+   if(t.toolClass==='axe')g.fillRect(18,5,8,10);
+   if(t.toolClass==='shovel'){g.beginPath();g.moveTo(19,8);g.lineTo(24,5);g.lineTo(27,10);g.closePath();g.fill()}
+ }else{g.fillStyle=ITEMS[id]?.color||'#aaa';g.fillRect(14,4,4,24);g.fillRect(11,5,10,4)}
+ itemPreviewCache[id]=c.toDataURL('image/png');return itemPreviewCache[id]
+}
+
+function renderHotbar(){
+ const h=$('#hotbar');h.innerHTML='';
+ hotbarSlots.forEach((rawId,i)=>{
+   const id=(mode==='Creative'||(rawId&&(inventory[rawId]||0)>0))?rawId:null;
+   const def=id?ITEM_DEFS[id]:null,s=document.createElement('div');
+   s.className='slot'+(i===selectedSlot?' sel':'')+(!def?' empty':'');
+   if(def)s.innerHTML=`<img class="${TOOLS[id]?'toolThumb':'blockThumb'}" draggable="false" alt="${def.name}" src="${itemPreview(id)}"><small>${mode==='Creative'?'∞':(inventory[id]||0)}</small>`;
+   const choose=e=>{e.preventDefault();e.stopPropagation();selectedSlot=i;selected=def?id:null;renderHotbar();renderInventory()};
+   s.addEventListener('pointerdown',choose);s.addEventListener('click',choose);
+   h.appendChild(s)
+ })
+}
+function renderBars(){
+ const hud=$('#bottomHud');
+ hud.classList.toggle('creativeHud',mode==='Creative');
+ $('#hearts').innerHTML='';$('#foods').innerHTML='';$('#armourRow').innerHTML='';
+ if(mode==='Creative')return;
+ for(let i=0;i<10;i++){
+   const h=document.createElement('span');h.className='heart';h.textContent=i<Math.ceil(health/2)?'♥':'♡';$('#hearts').appendChild(h);
+   const f=document.createElement('span');f.className='food';f.textContent=i<Math.ceil(hunger/2)?'●':'○';$('#foods').appendChild(f);
+   const a=document.createElement('span');a.className='armour';a.textContent=i<Math.ceil(armour/2)?'◆':'◇';$('#armourRow').appendChild(a);
+ }
+ $('#armourRow').style.visibility=armour>0?'visible':'hidden';
+}
+function updateCreativeControls(){
+ const creative=mode==='Creative';
+ $('#crouch').style.display=creative?'block':'none';
+ $('#sprint').style.display=creative&&flying?'none':'block';
+ $('#jump').title=creative?'Double tap to fly; hold to rise while flying':'Jump';
+ $('#crouch').title='Hold to descend; double tap to stop flying';
+}
+function setFlying(v){
+ flying=mode==='Creative'&&v;flyRise=false;flyDescend=false;vel.y=0;updateCreativeControls();
+ if(mode==='Creative')toast(flying?'Flying enabled':'Flying disabled')
+}
+const RECIPES=[
+ {id:'planks',name:'Planks ×4',cat:'building',needs:{wood:1},out:{id:'planks',qty:4},pattern:['wood']},
+ {id:'stick',name:'Sticks ×4',cat:'items',needs:{planks:2},out:{id:'stick',qty:4},pattern:['planks','planks']},
+ {id:'crafting',name:'Crafting Table',cat:'building',needs:{planks:4},out:{id:'crafting',qty:1},pattern:['planks','planks','planks','planks']},
+ {id:'wooden_pickaxe',name:'Wooden Pickaxe',cat:'tools',needs:{planks:3,stick:2},out:{id:'wooden_pickaxe',qty:1}},
+ {id:'wooden_axe',name:'Wooden Axe',cat:'tools',needs:{planks:3,stick:2},out:{id:'wooden_axe',qty:1}},
+ {id:'wooden_shovel',name:'Wooden Shovel',cat:'tools',needs:{planks:1,stick:2},out:{id:'wooden_shovel',qty:1}},
+ {id:'stone_pickaxe',name:'Stone Pickaxe',cat:'tools',needs:{stone:3,stick:2},out:{id:'stone_pickaxe',qty:1}},
+ {id:'stone_axe',name:'Stone Axe',cat:'tools',needs:{stone:3,stick:2},out:{id:'stone_axe',qty:1}},
+ {id:'stone_shovel',name:'Stone Shovel',cat:'tools',needs:{stone:1,stick:2},out:{id:'stone_shovel',qty:1}}
+];
+function canCraft(r){return Object.entries(r.needs).every(([id,q])=>(inventory[id]||0)>=q)}
+function craftRecipe(r){
+ if(!canCraft(r)){toast('Missing materials');return}
+ for(const [id,q] of Object.entries(r.needs))inventory[id]-=q;
+ inventory[r.out.id]=(inventory[r.out.id]||0)+r.out.qty;ensureHotbarItem(r.out.id);
+ toast('Crafted '+r.name);renderInventory();renderHotbar()
+}
+function makeInventoryCell(id,qty,clickable=true){
+ const cell=document.createElement('div');cell.className='storageCell'+(!id?' empty':'');
+ if(id&&(mode==='Creative'||qty>0)){
+   const def=ITEM_DEFS[id];cell.innerHTML=`<img draggable="false" alt="${def.name}" src="${itemPreview(id)}"><small>${mode==='Creative'?'∞':qty}</small>`;cell.title=def.name;
+   if(clickable){
+     const choose=e=>{e.preventDefault();e.stopPropagation();putInHotbar(id)};
+     cell.addEventListener('pointerdown',choose);
+     enableCraftDrag(cell,id)
+   }
+ }
+ return cell
+}
+function putInHotbar(id){
+ if(!id)return;
+ hotbarSlots[selectedSlot]=id;selected=id;renderHotbar();renderInventory();toast(ITEM_DEFS[id].name+' selected')
+}
+function renderHotbarMirror(targetId){
+ const g=$(targetId);if(!g)return;g.innerHTML='';
+ hotbarSlots.forEach((id,i)=>{
+   const shown=(mode==='Creative'||(id&&(inventory[id]||0)>0))?id:null;const c=makeInventoryCell(shown,shown?(inventory[shown]||0):0,false);
+   if(i===selectedSlot)c.style.outline='3px solid white';
+   c.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();selectedSlot=i;selected=hotbarSlots[i];renderHotbar();renderInventory()});
+   if(shown)enableCraftDrag(c,shown);
+   g.appendChild(c)
+ })
+}
+function renderRecipeList(){
+ const list=$('#recipeList');if(!list)return;list.innerHTML='';const q=($('#recipeSearch')?.value||'').toLowerCase();
+ RECIPES.filter(r=>(recipeCategory==='all'||r.cat===recipeCategory)&&r.name.toLowerCase().includes(q)).forEach(r=>{
+   const b=document.createElement('button');b.className='recipeCard'+(canCraft(r)?' canCraft':'');
+   b.innerHTML=`<img alt="${r.name}" src="${itemPreview(r.out.id)}"><span>${r.name}</span>`;
+   const run=e=>{e.preventDefault();e.stopPropagation();craftRecipe(r)};
+   b.addEventListener('pointerdown',run);list.appendChild(b)
+ })
+}
+function enableCraftDrag(el,id){
+ el.addEventListener('pointerdown',e=>{
+   if(mode==='Creative')return;
+   dragCraftItem=id;
+   el.setPointerCapture?.(e.pointerId)
+ });
+ el.addEventListener('pointerup',e=>{
+   if(!dragCraftItem)return;
+   const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('.craftCell');
+   if(target)putOneInCraft(Number(target.dataset.craftIndex),dragCraftItem);
+   dragCraftItem=null
+ })
+}
+function putOneInCraft(index,id){
+ if(mode==='Creative'||!id||(inventory[id]||0)<=0)return;
+ const slot=craftSlots[index];
+ if(slot&&slot.id!==id)return;
+ inventory[id]--;
+ craftSlots[index]={id,qty:(slot?.qty||0)+1};
+ if(inventory[id]<=0){
+   hotbarSlots=hotbarSlots.map(x=>x===id?null:x);
+   if(selected===id){selected=null}
+ }
+ renderInventory();renderHotbar()
+}
+function returnCraftSlot(index){
+ const slot=craftSlots[index];if(!slot)return;
+ inventory[slot.id]=(inventory[slot.id]||0)+slot.qty;craftSlots[index]=null;ensureHotbarItem(slot.id);renderInventory();renderHotbar()
+}
+function craftOutputForGrid(){
+ const active=craftSlots.slice(0,craftSize*craftSize);
+ const ids=active.filter(Boolean).map(s=>s.id);
+ if(craftSize===2&&ids.length===4&&ids.every(x=>x==='planks'))return{id:'crafting',qty:1,consume:4};
+ if(ids.length===1&&ids[0]==='wood')return{id:'planks',qty:4,consume:1};
+ return null
+}
+function takeCraftOutput(){
+ const out=craftOutputForGrid();if(!out)return;
+ let left=out.consume;
+ for(let i=0;i<craftSize*craftSize&&left>0;i++){
+   const s=craftSlots[i];if(!s)continue;
+   const take=Math.min(left,s.qty);s.qty-=take;left-=take;if(s.qty<=0)craftSlots[i]=null
+ }
+ inventory[out.id]=(inventory[out.id]||0)+out.qty;ensureHotbarItem(out.id);
+ toast('Crafted '+ITEM_DEFS[out.id].name);renderInventory();renderHotbar()
+}
+function renderCraftGrid(){
+ const g=$('#craftGrid');g.style.setProperty('--craft-size',craftSize);g.innerHTML='';
+ const count=craftSize*craftSize;
+ for(let i=0;i<count;i++){
+   const c=document.createElement('div');c.className='craftCell';c.dataset.craftIndex=i;
+   const slot=craftSlots[i];
+   if(slot)c.innerHTML=`<img alt="${ITEM_DEFS[slot.id].name}" src="${itemPreview(slot.id)}"><small>${slot.qty}</small>`;
+   c.addEventListener('pointerdown',e=>{
+     e.preventDefault();e.stopPropagation();
+     if(dragCraftItem)putOneInCraft(i,dragCraftItem);
+     else if(slot)returnCraftSlot(i)
+   });
+   g.appendChild(c)
+ }
+ const out=craftOutputForGrid(),o=$('#craftOut');
+ o.innerHTML=out?`<img style="width:38px;height:38px;image-rendering:pixelated" src="${itemPreview(out.id)}">`:'?';
+ o.disabled=!out
+}
+function renderInventory(){
+ const survival=mode!=='Creative';$('#survivalInventory').classList.toggle('active',survival);$('#creativeInventory').classList.toggle('active',!survival);$('#inventoryTitle').textContent=survival?'Inventory':'Creative Inventory';
+ if(survival){
+   const ids=Object.keys(inventory).filter(id=>(inventory[id]||0)>0),storage=$('#survivalStorage');storage.innerHTML='';
+   for(let i=0;i<27;i++)storage.appendChild(makeInventoryCell(ids[i]||null,ids[i]?(inventory[ids[i]]||0):0));
+   renderHotbarMirror('#survivalHotbarMirror');renderRecipeList();renderCraftGrid();
+   const toggle=$('#craftSizeToggle');toggle.style.display=(inventory.crafting||0)>0?'inline-block':'none';toggle.textContent=craftSize===2?'Use 3×3 Table':'Use 2×2 Grid'
+ }else{
+   const q=($('#creativeSearch')?.value||'').toLowerCase(),grid=$('#creativeGrid');grid.innerHTML='';
+   Object.keys(ITEM_DEFS).filter(id=>{
+     const d=ITEM_DEFS[id];
+     const catOk=creativeCategory==='all'||(creativeCategory==='tools'&&!!TOOLS[id])||(creativeCategory==='blocks'&&!!BLOCKS[id])||(creativeCategory==='natural'&&BLOCKS[id]?.category==='natural');
+     return catOk&&d.name.toLowerCase().includes(q)
+   }).forEach(id=>{
+     const c=document.createElement('div');c.className='creativeCell'+(id===selected?' sel':'');c.innerHTML=`<img draggable="false" alt="${ITEM_DEFS[id].name}" src="${itemPreview(id)}"><small>∞</small>`;
+     c.title=ITEM_DEFS[id].name;c.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();putInHotbar(id)});grid.appendChild(c)
+   });renderHotbarMirror('#creativeHotbarMirror')
+ }
+}
+let crackMaterials=[];
+function makeCrackTexture(stage){
+ const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.clearRect(0,0,64,64);g.strokeStyle='rgba(20,20,20,.9)';g.lineWidth=2;g.lineCap='square';
+ let seed=1337+stage*97;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
+ const branches=3+stage;
+ for(let b=0;b<branches;b++){let x=32+(rnd()-.5)*10,y=32+(rnd()-.5)*10;g.beginPath();g.moveTo(x,y);const segs=2+Math.floor(stage/2);for(let s=0;s<segs;s++){x+=(rnd()-.5)*(9+stage*1.8);y+=(rnd()-.5)*(9+stage*1.8);g.lineTo(x,y)}g.stroke()}
+ const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;return t
+}
+function initCrackMaterials(){crackMaterials=[];for(let i=0;i<10;i++)crackMaterials.push(new THREE.MeshBasicMaterial({map:makeCrackTexture(i),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4}))}
+function showCrack(target,stage){stage=Math.max(0,Math.min(9,stage));if(!crackMesh){crackMesh=new THREE.Mesh(new THREE.BoxGeometry(1.012,1.012,1.012),crackMaterials[stage]);scene.add(crackMesh)}if(crackStage!==stage){crackMesh.material=crackMaterials[stage];crackStage=stage}crackMesh.position.copy(target.position);crackMesh.visible=true}
+function hideCrack(){if(crackMesh)crackMesh.visible=false;crackStage=-1}
+function targetHit(){raycaster.setFromCamera(new THREE.Vector2(0,0),camera);const h=raycaster.intersectObjects(meshes,false);return h.find(x=>x.distance<5.5)}
+function currentTool(){return TOOLS[selected]||null}
+function miningDurationMs(type){const b=BLOCKS[type];if(!b||b.breakable===false)return Infinity;const tool=currentTool();let speed=1;if(tool)speed=tool.toolClass===b.tool?tool.speed:.72;return Math.max(120,b.hardness*1000/speed)}
+function ensureHotbarItem(id){
+ if(!id)return;
+ if(hotbarSlots.includes(id))return;
+ const empty=hotbarSlots.findIndex(x=>!x||(mode!=='Creative'&&(inventory[x]||0)<=0));
+ if(empty>=0)hotbarSlots[empty]=id
+}
+function mineOnce(){const hit=targetHit();if(!hit)return;const m=hit.object,typ=m.userData.type;if(BLOCKS[typ].breakable===false){toast('That cannot be mined');return}delBlock(m);hideCrack();if(mode!=='Creative'){inventory[typ]=(inventory[typ]||0)+1;ensureHotbarItem(typ);renderHotbar();renderInventory()}}
+function beginMine(){const hit=targetHit();if(!hit)return;const typ=hit.object.userData.type;if(BLOCKS[typ].breakable===false)return;mining=true;miningTarget=hit.object;miningStart=performance.now();breakDuration=mode==='Creative'?60:miningDurationMs(typ);$('#miningHint').textContent=currentTool()?currentTool().name:'Hand';$('#miningHint').classList.add('show');showCrack(miningTarget,0)}
+function endMine(){mining=false;miningTarget=null;hideCrack();$('#miningHint').classList.remove('show')}
+function blockIntersectsPlayer(x,y,z){
+ const a=playerAABB(camera.position);
+ return a.maxX>x-.5&&a.minX<x+.5&&a.maxY>y-.5&&a.minY<y+.5&&a.maxZ>z-.5&&a.minZ<z+.5
+}
+function place(){
+ if(!selected||!BLOCKS[selected]){toast('Select a block');return}
+ const hit=targetHit();if(!hit)return;
+ const p=hit.object.position.clone().add(hit.face.normal),x=Math.round(p.x),y=Math.round(p.y),z=Math.round(p.z);
+ if(blockIntersectsPlayer(x,y,z)){toast('Cannot place inside yourself');return}
+ if(mode!=='Creative'&&(inventory[selected]||0)<=0){toast('No '+BLOCKS[selected].name);return}
+ addBlock(x,y,z,selected);
+ if(mode!=='Creative'){
+   inventory[selected]--;
+   if(inventory[selected]<=0){hotbarSlots[selectedSlot]=null;selected=null}
+   renderHotbar();renderInventory()
+ }
+}
+function jump(){
+ if(mode==='Creative'){
+   if(!flying){vel.y=6.6;onGround=false}
+   return
+ }
+ if(onGround){vel.y=6.6;onGround=false}
+}
+function creativeJumpPress(){
+ const now=performance.now();
+ if(mode==='Creative'&&now-lastJumpTap<330){setFlying(true);lastJumpTap=0}
+ else{lastJumpTap=now;if(!flying)jump()}
+ if(flying)flyRise=true
+}
+function creativeJumpRelease(){flyRise=false}
+function creativeCrouchPress(){
+ if(mode!=='Creative')return;
+ const now=performance.now();
+ if(flying&&now-lastCrouchTap<330){setFlying(false);lastCrouchTap=0;return}
+ lastCrouchTap=now;if(flying)flyDescend=true
+}
+function creativeCrouchRelease(){flyDescend=false}
+
+function setupInput(){
+ window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+ window.addEventListener('keydown',e=>{keys[e.code]=true;const n=parseInt(e.key);if(n>=1&&n<=9){selectedSlot=n-1;selected=hotbarSlots[selectedSlot];renderHotbar();renderInventory()}if(e.code==='KeyE')openInv();if(e.code==='Space'){if(mode==='Creative')creativeJumpPress();else jump()}});window.addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='Space')creativeJumpRelease()});
+ const v=$('#view');v.addEventListener('click',()=>{if(!isMobile())v.requestPointerLock?.()});document.addEventListener('mousemove',e=>{if(document.pointerLockElement===v){yaw-=e.movementX*(lookSensitivity*.42);pitch-=e.movementY*(lookSensitivity*.42);pitch=Math.max(-1.48,Math.min(1.48,pitch))}});
+ v.addEventListener('mousedown',e=>{if(document.pointerLockElement===v){if(e.button===0)beginMine();if(e.button===2)place()}});window.addEventListener('mouseup',endMine);v.addEventListener('contextmenu',e=>e.preventDefault());
+ setupMobile();
+}
+function isMobile(){return matchMedia('(max-width:820px)').matches||'ontouchstart'in window}
+function setupMobile(){
+ const j=$('#joy'),st=$('#stick');let joyId=null;
+ const stopNative=e=>{if(e.cancelable)e.preventDefault()};
+ ['contextmenu','selectstart','dragstart'].forEach(ev=>$('#game').addEventListener(ev,e=>e.preventDefault()));
+ $('#view').addEventListener('touchstart',stopNative,{passive:false});
+
+ function mv(e){
+   const r=j.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+   let dx=e.clientX-cx,dy=e.clientY-cy,d=Math.hypot(dx,dy)||1,max=39;
+   if(d>max){dx*=max/d;dy*=max/d}
+   mobileMove={x:dx/max,y:dy/max};
+   st.style.transform=`translate(${dx}px,${dy}px)`
+ }
+ j.addEventListener('pointerdown',e=>{e.preventDefault();joyId=e.pointerId;j.setPointerCapture?.(joyId);mv(e)});
+ j.addEventListener('pointermove',e=>{if(e.pointerId===joyId){e.preventDefault();mv(e)}});
+ function endJoy(e){if(e&&joyId!==null&&e.pointerId!==joyId)return;joyId=null;mobileMove={x:0,y:0};st.style.transform=''}
+ j.addEventListener('pointerup',endJoy);j.addEventListener('pointercancel',endJoy);
+
+ let lookId=null,lx=0,ly=0,downX=0,downY=0,holdTimer=null,lookMoved=false;
+ const view=$('#view');
+ view.addEventListener('pointerdown',e=>{
+   e.preventDefault();
+   lookId=e.pointerId;view.setPointerCapture?.(lookId);
+   lx=downX=e.clientX;ly=downY=e.clientY;lookMoved=false;
+   if(mode==='Survival'){
+     clearTimeout(holdTimer);
+     holdTimer=setTimeout(()=>{if(!lookMoved&&lookId===e.pointerId)beginMine()},260)
+   }
+ });
+ view.addEventListener('pointermove',e=>{
+   if(e.pointerId!==lookId)return;e.preventDefault();
+   const dx=e.clientX-lx,dy=e.clientY-ly;
+   if(Math.hypot(e.clientX-downX,e.clientY-downY)>9){lookMoved=true;clearTimeout(holdTimer);if(mining)endMine()}
+   yaw-=dx*lookSensitivity;pitch-=dy*lookSensitivity;
+   pitch=Math.max(-1.45,Math.min(1.45,pitch));lx=e.clientX;ly=e.clientY
+ });
+ function finishLook(e){
+   if(e&&lookId!==null&&e.pointerId!==lookId)return;
+   clearTimeout(holdTimer);endMine();lookId=null
+ }
+ view.addEventListener('pointerup',finishLook);
+ view.addEventListener('pointercancel',finishLook);
+
+ const tap=(el,fn)=>{el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();fn()})};
+ const jumpBtn=$('#jump'),crouchBtn=$('#crouch');
+ jumpBtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(mode==='Creative')creativeJumpPress();else jump()});
+ ['pointerup','pointercancel','pointerleave'].forEach(ev=>jumpBtn.addEventListener(ev,e=>{e.preventDefault();creativeJumpRelease()}));
+ crouchBtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();creativeCrouchPress()});
+ ['pointerup','pointercancel','pointerleave'].forEach(ev=>crouchBtn.addEventListener(ev,e=>{e.preventDefault();creativeCrouchRelease()}));
+ tap($('#place'),place);
+ tap($('#breakCreative'),()=>{if(mode==='Creative')mineOnce()});
+ tap($('#mobileInv'),openInv);
+ tap($('#sprint'),toggleSprint);
+}
+function canSprint(){return mode==='Creative'||hunger>6}
+function setSprint(v){
+ sprintEnabled=!!v&&canSprint();$('#sprint').dataset.on=sprintEnabled?'1':'0';$('#sprint').classList.toggle('disabled',!canSprint());
+ if(v&&!canSprint())toast('Too hungry to sprint')
+}
+function toggleSprint(){setSprint(!sprintEnabled)}
+function update(dt){
+ camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+ const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();
+ if(keys.KeyW)d.add(f);if(keys.KeyS)d.sub(f);if(keys.KeyD)d.add(r);if(keys.KeyA)d.sub(r);if(Math.abs(mobileMove.y)>.1)d.addScaledVector(f,-mobileMove.y);if(Math.abs(mobileMove.x)>.1)d.addScaledVector(r,mobileMove.x);if(d.lengthSq())d.normalize();
+ const moving=d.lengthSq()>.0001;const sprint=(mode==='Creative'?(sprintEnabled||keys.ShiftLeft):(sprintEnabled&&canSprint()));const speed=mode==='Creative'?(sprint?8.2:6.8):(sprint?6.2:4.5);moveHorizontal(d.multiplyScalar(speed*dt));
+ if(mode==='Creative'&&flying){const up=(flyRise||keys.Space)?1:0,down=(flyDescend||keys.ShiftLeft)?1:0;moveVertical((up-down)*5.2*dt);vel.y=0}
+ else{vel.y-=15*dt;moveVertical(vel.y*dt);if(standingOnBlock()){onGround=true;if(vel.y<0)vel.y=0}}
+ $('#coords').textContent=`${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)}`;
+ if(mining&&miningTarget){
+   const hit=targetHit();
+   if(!hit||hit.object!==miningTarget)endMine();
+   else{
+     const p=Math.min(1,(performance.now()-miningStart)/breakDuration);showCrack(miningTarget,Math.floor(p*9.999));
+     if(p>=1){const typ=miningTarget.userData.type;delBlock(miningTarget);if(mode!=='Creative'){inventory[typ]=(inventory[typ]||0)+1;ensureHotbarItem(typ);renderHotbar();renderInventory()}endMine()}
+   }
+ }
+ if(mode==='Survival'){
+   if(difficulty==='Peaceful'){
+     hunger=Math.min(20,hunger+dt*.8);health=Math.min(20,health+dt*.25)
+   }else{
+     const hungerRate=difficulty==='Easy'?26:difficulty==='Hard'?12:18;
+     const sprintMultiplier=(sprint&&moving)?2.6:1;
+     lastHunger+=dt*sprintMultiplier;
+     if(lastHunger>hungerRate){
+       lastHunger=0;hunger=Math.max(0,hunger-1);
+       if(hunger<=6&&sprintEnabled)setSprint(false);
+       if(hunger===0){
+         const dmg=difficulty==='Easy'?.5:difficulty==='Hard'?2:1;
+         health=Math.max(difficulty==='Easy'?10:1,health-dmg)
+       }
+     }
+   }
+   $('#sprint').classList.toggle('disabled',!canSprint());
+   renderBars()
+ }
+ let day=(performance.now()/1000)%180/180;if(!dayNight||forcedTime!=='cycle')day=forcedTime==='night'?.75:.25;const ang=day*Math.PI*2;sun.position.set(Math.cos(ang)*35,Math.sin(ang)*35,18);
+ const daylight=Math.max(.18,Math.sin(ang)*.9+.25);sun.intensity=daylight;skyLight.intensity=.55+daylight*.65;scene.background.setHSL(.56,.55,.2+.45*daylight);if(scene.fog)scene.fog.color.copy(scene.background);
+ fpsFrames++;const now=performance.now();if(now-fpsStamp>=500){fps=Math.round(fpsFrames*1000/(now-fpsStamp));fpsFrames=0;fpsStamp=now}updateStats()
+}
+function animate(){requestAnimationFrame(animate);if(!renderer)return;const dt=Math.min(clock.getDelta(),.04);if(game.classList.contains('active')&&!$('.overlay.open'))update(dt);renderer.render(scene,camera)}
+
+function updateDifficultyBadge(){const b=$('#difficultyBadge');if(b)b.textContent='• '+difficulty}
+function applyMode(newMode){
+  mode=newMode;if(mode!=='Creative')setFlying(false);if(!canSprint())setSprint(false);
+  $('#worldLabel').textContent=worldName+' • '+mode;
+  $('#pauseGameMode').value=mode;
+  $('#breakCreative').style.display=(mode==='Creative'?'block':'none');
+  if(mode==='Creative'){hunger=20;health=20}
+  renderHotbar();renderInventory();renderBars();updateCreativeControls()
+}
+function facingName(){
+  const dx=-Math.sin(yaw),dz=-Math.cos(yaw);
+  if(Math.abs(dx)>Math.abs(dz))return dx>0?'East (+X)':'West (-X)';
+  return dz>0?'South (+Z)':'North (-Z)'
+}
+function updateStats(){
+  if(!$('#statsPanel').classList.contains('open'))return;
+  const hit=targetHit();
+  $('#statWorld').textContent=worldName;
+  $('#statMode').textContent=mode;
+  $('#statDifficulty').textContent=difficulty;
+  $('#statXYZ').textContent=`${camera.position.x.toFixed(2)} / ${camera.position.y.toFixed(2)} / ${camera.position.z.toFixed(2)}`;
+  $('#statBlock').textContent=`${Math.floor(camera.position.x)} / ${Math.floor(camera.position.y)} / ${Math.floor(camera.position.z)}`;
+  $('#statFacing').textContent=facingName()+` | yaw ${((yaw*180/Math.PI)%360).toFixed(1)}°, pitch ${(pitch*180/Math.PI).toFixed(1)}°`;
+  $('#statTarget').textContent=hit?`${BLOCKS[hit.object.userData.type].name} @ ${hit.object.userData.x}, ${hit.object.userData.y}, ${hit.object.userData.z}`:'None';
+  $('#statVelocity').textContent=`${vel.x.toFixed(2)}, ${vel.y.toFixed(2)}, ${vel.z.toFixed(2)}`;
+  $('#statSeed').textContent=worldSeed;
+  $('#statWorldType').textContent=worldType;
+  $('#statBlocks').textContent=blocks.size;
+  $('#statFPS').textContent=fps
+}
+$('#statsBtn').onclick=null;
+$('#statsBtn').addEventListener('pointerdown',e=>{
+  e.preventDefault();e.stopPropagation();$('#statsPanel').classList.toggle('open')
+});
+
+
+$$('.pauseTab').forEach(b=>{
+ const activate=e=>{
+   if(e){e.preventDefault();e.stopPropagation()}
+   $$('.pauseTab').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+   $$('.pauseSection').forEach(x=>x.classList.remove('active'));
+   $('#pause-'+b.dataset.pauseTab).classList.add('active')
+ };
+ b.addEventListener('pointerdown',activate)
+});
+$('#pauseGameMode').onchange=e=>applyMode(e.target.value);
+$('#pauseDifficulty').onchange=e=>{difficulty=e.target.value;updateDifficultyBadge()};
+$('#pauseCoords').onchange=e=>$('#coords').style.display=e.target.value==='on'?'block':'none';
+$('#keepInventory').onchange=e=>keepInv=e.target.value==='on';
+$('#pauseSensitivity').oninput=e=>{lookSensitivity=Number(e.target.value)*.001;if($('#sensitivity'))$('#sensitivity').value=e.target.value};
+$('#pauseCrossSize').onchange=e=>{$('#cross').classList.remove('small','large');if(e.target.value==='Small')$('#cross').classList.add('small');if(e.target.value==='Large')$('#cross').classList.add('large');if($('#crossSize'))$('#crossSize').value=e.target.value};
+$('#fovRange').oninput=e=>{camera.fov=Number(e.target.value);camera.updateProjectionMatrix()};
+$('#fogToggle').onchange=e=>{fogEnabled=e.target.value==='on';scene.fog=fogEnabled?new THREE.Fog(scene.background.clone(),28,86):null};
+$('#dayCycle').onchange=e=>dayNight=e.target.value==='on';
+$('#worldTime').onchange=e=>forcedTime=e.target.value;
+$('#pauseRenderDistance').onchange=e=>{
+  if(!scene.fog)return;
+  const v=e.target.value;
+  scene.fog.near=v==='Short'?18:v==='Far'?42:28;
+  scene.fog.far=v==='Short'?55:v==='Far'?120:86
+};
+
+$('#pauseOpen').onclick=null;
+$('#pauseOpen').addEventListener('pointerdown',e=>{
+ e.preventDefault();e.stopPropagation();
+ $('#pauseWorldName').value=worldName;$('#pauseSeed').value=worldSeed;$('#pauseWorldType').value=worldType;
+ $('#pauseGameMode').value=mode;$('#pauseDifficulty').value=difficulty;
+ $('#pauseOverlay').classList.add('open');document.exitPointerLock?.()
+});$('#resume').onclick=null;
+$('#resume').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();$('#pauseOverlay').classList.remove('open')});
+$('#saveExit').onclick=null;
+$('#saveExit').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const worlds=getUserWorlds();const w=worlds.find(x=>x.name===worldName&&String(x.seed)===String(worldSeed));if(w){w.updatedAt=Date.now();saveUserWorlds(worlds)};document.exitPointerLock?.();$('#pauseOverlay').classList.remove('open');$('#statsPanel').classList.remove('open');game.classList.remove('active');menu.classList.add('active');$('#authUserBar').classList.add('show');renderWorldList();toast('World saved')});
+function openInv(){document.exitPointerLock?.();renderInventory();$('#inventoryOverlay').classList.add('open')}
+function closeInventory(){$('#inventoryOverlay').classList.remove('open');endMine()}
+$('#inventoryBtn').onclick=openInv;
+['closeInv','closeInvTop'].forEach(id=>{
+ const el=$('#'+id);
+ el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();closeInventory()});
+ el.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeInventory()})
+});
+
+
+$('#craftOut').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();takeCraftOutput()});
+$('#craftSizeToggle').addEventListener('pointerdown',e=>{
+ e.preventDefault();e.stopPropagation();
+ if((inventory.crafting||0)<=0)return;
+ craftSize=craftSize===2?3:2;renderInventory()
+});
+
+$$('.recipeTab').forEach(b=>b.addEventListener('click',()=>{$$('.recipeTab').forEach(x=>x.classList.remove('active'));b.classList.add('active');recipeCategory=b.dataset.recipeCat;renderRecipeList()}));
+$$('.creativeTab').forEach(b=>b.addEventListener('click',()=>{$$('.creativeTab').forEach(x=>x.classList.remove('active'));b.classList.add('active');creativeCategory=b.dataset.creativeCat;renderInventory()}));
+$('#recipeSearch').addEventListener('input',renderRecipeList);
+$('#creativeSearch').addEventListener('input',renderInventory);
+
+</script>
+</body>
+</html>
