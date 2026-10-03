@@ -1490,24 +1490,39 @@ function setupMobile(){
    st.style.transform=`translate(${dx}px,${dy}px)`
  }
  let joyStartX=0,joyStartY=0,joyMoved=false;
- // iPad Safari: use direct touch tracking for the joystick. Pointer capture can
- // intermittently swallow joystick movement while WebGL is active.
+ // Robust iPad joystick: begin on the pad, then track that finger globally.
+ // Safari may stop dispatching movement to the original element once the finger
+ // slides outside it, so document-level listeners keep movement continuous.
  let joyTouchId=null;
- function touchPoint(list,id){for(const t of list)if(t.identifier===id)return t;return null}
- j.addEventListener('touchstart',e=>{
-   if(joyTouchId!==null)return;const t=e.changedTouches[0];if(!t)return;e.preventDefault();
-   joyTouchId=t.identifier;joyStartX=t.clientX;joyStartY=t.clientY;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='';
- },{passive:false});
- j.addEventListener('touchmove',e=>{
-   const t=touchPoint(e.changedTouches,joyTouchId)||touchPoint(e.touches,joyTouchId);if(!t)return;e.preventDefault();
-   if(!joyMoved&&Math.hypot(t.clientX-joyStartX,t.clientY-joyStartY)<5)return;joyMoved=true;mv(t);
- },{passive:false});
- function endTouchJoy(e){if(joyTouchId===null)return;const t=touchPoint(e.changedTouches,joyTouchId);if(!t)return;e.preventDefault();joyTouchId=null;mobileMove={x:0,y:0};st.style.transform=''}
- j.addEventListener('touchend',endTouchJoy,{passive:false});j.addEventListener('touchcancel',endTouchJoy,{passive:false});
- // Mouse/desktop fallback. Ignore touch-generated pointer events on iPad.
- j.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;e.preventDefault();joyId=e.pointerId;joyStartX=e.clientX;joyStartY=e.clientY;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='';j.setPointerCapture?.(joyId)});
- j.addEventListener('pointermove',e=>{if(e.pointerType==='touch'||e.pointerId!==joyId)return;e.preventDefault();if(!joyMoved&&Math.hypot(e.clientX-joyStartX,e.clientY-joyStartY)<5)return;joyMoved=true;mv(e)});
- function endJoy(e){if(e&&e.pointerType==='touch')return;if(e&&joyId!==null&&e.pointerId!==joyId)return;joyId=null;mobileMove={x:0,y:0};st.style.transform=''}
+ function touchPoint(list,id){for(let i=0;i<list.length;i++){const t=list[i];if(t.identifier===id)return t}return null}
+ function beginTouchJoy(e){
+   if(joyTouchId!==null)return;
+   const t=e.changedTouches&&e.changedTouches[0];if(!t)return;
+   if(e.cancelable)e.preventDefault();e.stopPropagation();
+   joyTouchId=t.identifier;joyStartX=t.clientX;joyStartY=t.clientY;joyMoved=false;
+   mobileMove={x:0,y:0};st.style.transform='translate(0px,0px)';
+ }
+ function moveTouchJoy(e){
+   if(joyTouchId===null)return;
+   const t=touchPoint(e.touches,joyTouchId)||touchPoint(e.changedTouches||[],joyTouchId);if(!t)return;
+   if(e.cancelable)e.preventDefault();e.stopPropagation();
+   if(!joyMoved&&Math.hypot(t.clientX-joyStartX,t.clientY-joyStartY)<3)return;
+   joyMoved=true;mv(t);
+ }
+ function endTouchJoy(e){
+   if(joyTouchId===null)return;
+   const t=touchPoint(e.changedTouches||[],joyTouchId);if(!t)return;
+   if(e.cancelable)e.preventDefault();e.stopPropagation();
+   joyTouchId=null;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='translate(0px,0px)';
+ }
+ j.addEventListener('touchstart',beginTouchJoy,{passive:false});
+ document.addEventListener('touchmove',moveTouchJoy,{passive:false,capture:true});
+ document.addEventListener('touchend',endTouchJoy,{passive:false,capture:true});
+ document.addEventListener('touchcancel',endTouchJoy,{passive:false,capture:true});
+ // Pointer/mouse fallback for desktop. Touch is handled above on iPad.
+ j.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;e.preventDefault();e.stopPropagation();joyId=e.pointerId;joyStartX=e.clientX;joyStartY=e.clientY;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='translate(0px,0px)';j.setPointerCapture?.(joyId)});
+ j.addEventListener('pointermove',e=>{if(e.pointerType==='touch'||e.pointerId!==joyId)return;e.preventDefault();if(!joyMoved&&Math.hypot(e.clientX-joyStartX,e.clientY-joyStartY)<3)return;joyMoved=true;mv(e)});
+ function endJoy(e){if(e&&e.pointerType==='touch')return;if(e&&joyId!==null&&e.pointerId!==joyId)return;joyId=null;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='translate(0px,0px)'}
  j.addEventListener('pointerup',endJoy);j.addEventListener('pointercancel',endJoy);
 
  let lookId=null,lx=0,ly=0,downX=0,downY=0,holdTimer=null,lookMoved=false;
