@@ -270,6 +270,9 @@ button,input,select{font:inherit}
 .worldEditGrid input,.worldEditGrid select{width:100%;border:3px solid #777;border-radius:0;background:#1d1d1d;color:#fff;padding:12px}
 
 
+/* ===== BlockForge v10: performance + touch + mob polish ===== */
+#hotbarName{position:absolute;left:50%;bottom:72px;transform:translateX(-50%);z-index:16;background:#000a;border:1px solid #fff5;padding:4px 9px;font-size:13px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .18s}
+#hotbarName.show{opacity:1}
 /* ===== BlockForge v9: mobs + combat ===== */
 #attack{display:block}
 .mobHealth{position:absolute;pointer-events:none}
@@ -362,7 +365,7 @@ button,input,select{font:inherit}
           <div class="form">
             <div><label>World Name</label><input id="worldName" value="My New World"></div>
             <div><label>Game Mode</label><div class="modes"><button class="mode active" data-mode="Survival">Survival</button><button class="mode" data-mode="Creative">Creative</button></div></div>
-            <div><label>World Type</label><select id="worldType"><option>Normal</option><option>Flat</option><option>Mountainous</option><option>Island</option></select></div>
+            <div><label>World Type</label><select id="worldType"><option>Normal</option><option>Flat</option><option>Superflat</option><option>Mountainous</option><option>Island</option></select></div>
             <div><label>Seed</label><input id="seed" placeholder="Leave blank for random"></div>
           </div>
           <div class="actions"><button id="cancelCreate" class="pixelBtn">Cancel</button><button id="doCreate" class="pixelBtn green">Create</button></div>
@@ -375,7 +378,7 @@ button,input,select{font:inherit}
             <div><label>World Name</label><input id="editWorldName"></div>
             <div><label>Game Mode</label><select id="editWorldMode"><option>Survival</option><option>Creative</option></select></div>
             <div><label>Difficulty</label><select id="editWorldDifficulty"><option>Peaceful</option><option>Easy</option><option>Normal</option><option>Hard</option></select></div>
-            <div><label>World Type</label><select id="editWorldType"><option>Normal</option><option>Flat</option><option>Mountainous</option><option>Island</option></select></div>
+            <div><label>World Type</label><select id="editWorldType"><option>Normal</option><option>Flat</option><option>Superflat</option><option>Mountainous</option><option>Island</option></select></div>
             <div><label>Seed</label><input id="editWorldSeed" readonly></div>
           </div>
           <div class="actions">
@@ -420,6 +423,7 @@ button,input,select{font:inherit}
     </div>
   </div>
   <div class="breakRing" id="breakRing"><div class="breakFill" id="breakFill"></div></div>
+  <div id="hotbarName"></div>
   <div id="bottomHud">
     <div id="armourRow" class="armourRow"></div>
     <div class="bars"><div id="hearts" class="barGroup"></div><div id="foods" class="barGroup"></div></div>
@@ -751,11 +755,12 @@ let mining=false,miningTarget=null,miningStart=0,breakDuration=650,crackMesh=nul
 let selectedSlot=0,creativeCategory='all',recipeCategory='all',craftSize=2,craftSlots=Array(9).fill(null),dragCraftItem=null;
 const PLAYER_RADIUS=.30,PLAYER_HEIGHT=1.80,EYE_HEIGHT=1.62;
 let sprintEnabled=false,sprintHungerClock=0;
-let mobs=[],mobClock=0,mobSpawnClock=0,lastMobAttack=0;
+let mobs=[],mobClock=0,mobSpawnClock=0,lastMobAttack=0,hudClock=0;
 const BLOCKS={
  grass:{name:'Grass',color:0x5f9b48,hardness:.75,tool:'shovel',category:'natural'},
  dirt:{name:'Dirt',color:0x79583a,hardness:.75,tool:'shovel',category:'natural'},
  stone:{name:'Stone',color:0x777b80,hardness:5.0,tool:'pickaxe',category:'natural'},
+ bedrock:{name:'Bedrock',color:0x343434,hardness:999,tool:null,category:'natural',breakable:false},
  wood:{name:'Wood',color:0x86572f,hardness:2.8,tool:'axe',category:'natural'},
  sand:{name:'Sand',color:0xd5c16b,hardness:.6,tool:'shovel',category:'natural'},
  water:{name:'Water',color:0x4682c5,hardness:999,tool:null,category:'natural',breakable:false},
@@ -932,6 +937,7 @@ function hseed(s){let h=2166136261;for(const ch of String(s)){h^=ch.charCodeAt(0
 function rnd(x,z,s){const n=Math.sin(x*127.1+z*311.7+s*.00013)*43758.5453;return n-Math.floor(n)}
 function height(x,z,s,type){
  if(type==='Flat')return 3;
+ if(type==='Superflat')return 54;
  let h=3+Math.floor((Math.sin((x+s%17)*.12)+Math.cos((z-s%23)*.11)+2)*1.15+rnd(x,z,s)*1.2);
  if(type==='Mountainous')h+=Math.floor(Math.abs(Math.sin(x*.085)*Math.cos(z*.09))*8);
  if(type==='Island'){
@@ -976,14 +982,22 @@ function generateChunk(cx,cz){
    let hh=height(x,z,s,worldType);
    if(worldType==='Island'&&hh<1)continue;
    for(let y=0;y<=hh;y++){
-     if(cave(x,y,z,s))continue;
-     let t=y===hh?'grass':y>hh-3?'dirt':'stone';
-     const rr=rnd(x*5+y,z*7,s);
-     if(y<hh-2&&rr>.975)t='coal';
-     else if(y<hh-2&&rr>.952)t='copper';
+     // Superflat has an exact fixed stack: grass at y=54, three dirt layers,
+     // exactly 50 stone layers (y=1..50), bedrock at y=0, then void below.
+     // No trees, caves, ores, water, plants or structures are generated.
+     if(worldType!=='Superflat' && cave(x,y,z,s))continue;
+     let t;
+     if(worldType==='Superflat'){
+       t=y===54?'grass':y>=51?'dirt':y>=1?'stone':'bedrock';
+     }else{
+       t=y===hh?'grass':y>hh-3?'dirt':'stone';
+       const rr=rnd(x*5+y,z*7,s);
+       if(y<hh-2&&rr>.975)t='coal';
+       else if(y<hh-2&&rr>.952)t='copper';
+     }
      addGeneratedBlock(x,y,z,t,cx,cz)
    }
-   generateTree(x,z,hh,cx,cz,s)
+   if(worldType!=='Superflat')generateTree(x,z,hh,cx,cz,s)
  }
  // Re-apply user placed blocks whose coordinates belong in/near this chunk.
  for(const [pk,type] of worldEdits){
@@ -1046,31 +1060,76 @@ function moveVertical(dy){if(!dy)return;const p=camera.position.clone();p.y+=dy;
 function standingOnBlock(){const p=camera.position.clone();p.y-=.055;return collidesAt(p)}
 function spawnEyeY(x,z,seed,type){const terrain=height(Math.round(x),Math.round(z),hseed(seed),type);return terrain+.5+EYE_HEIGHT+.02}
 function resetInv(){
- for(const k in inventory)inventory[k]=mode==='Creative'?64:0;
- if(mode==='Survival'){inventory.dirt=8;inventory.wood=4}
- hotbarSlots=mode==='Creative'
-   ?['grass','dirt','stone','wood','sand','coal','copper','planks','crafting']
-   :['dirt','wood',null,null,null,null,null,null,null];
- selectedSlot=0;selected=hotbarSlots[0]||null;
+ // Every new world starts with an actually empty inventory and hotbar.
+ // Creative items remain available from the Creative Inventory, but are not preloaded.
+ for(const k in inventory)inventory[k]=0;
+ hotbarSlots=Array(9).fill(null);
+ selectedSlot=0;selected=null;
  renderHotbar();renderInventory()
 }
-function mobMat(color){return new THREE.MeshLambertMaterial({color})}
-function mobPart(w,h,d,color,x,y,z,parent){const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mobMat(color));q.position.set(x,y,z);q.userData.mobPart=true;parent.add(q);return q}
-function makeMob(kind,x,z){
- const defs={cow:{hp:10,hostile:false,body:0x6b4328,head:0x8a5a35,speed:.7},sheep:{hp:8,hostile:false,body:0xe8e4dc,head:0x777777,speed:.65},pig:{hp:8,hostile:false,body:0xe98f9f,head:0xf0a0ad,speed:.7},chicken:{hp:4,hostile:false,body:0xf2f2e9,head:0xf5f5ef,speed:.75},zombie:{hp:12,hostile:true,body:0x3d6f45,head:0x4e8a58,speed:1.15},skeleton:{hp:10,hostile:true,body:0xd6d3c8,head:0xe1ded3,speed:1.0},spider:{hp:12,hostile:true,body:0x302626,head:0x3b2b2b,speed:1.45}};
- const d=defs[kind];if(!d)return null;const g=new THREE.Group();g.userData={mob:true,kind,hp:d.hp,maxHp:d.hp,hostile:d.hostile,speed:d.speed,dir:Math.random()*Math.PI*2,think:0,attack:0};
- if(kind==='spider'){mobPart(1.05,.38,.75,d.body,0,.35,0,g);mobPart(.55,.38,.55,d.head,0,.38,-.58,g);for(const side of [-1,1])for(let i=0;i<4;i++)mobPart(.7,.09,.09,d.body,side*.72,.3,(i-1.5)*.22,g)}
- else if(kind==='chicken'){mobPart(.55,.62,.5,d.body,0,.48,0,g);mobPart(.38,.38,.38,d.head,0,.88,-.25,g);mobPart(.12,.18,.12,0xd9a12e,-.16,.1,0,g);mobPart(.12,.18,.12,0xd9a12e,.16,.1,0,g)}
- else {mobPart(kind==='sheep'?.9:.82,.72,.52,d.body,0,.72,0,g);mobPart(.52,.52,.5,d.head,0,1.13,-.38,g);for(const xx of [-.28,.28])for(const zz of [-.18,.18])mobPart(.16,.62,.16,kind==='skeleton'?0xcfcbbf:d.body,xx,.31,zz,g)}
- const gy=height(Math.round(x),Math.round(z),activeSeedHash,worldType)+1;g.position.set(x,gy,z);scene.add(g);mobs.push(g);return g
+const MOB_MATS=new Map();
+function mobMat(color){
+ const key=String(color);if(!MOB_MATS.has(key))MOB_MATS.set(key,new THREE.MeshLambertMaterial({color,flatShading:true}));return MOB_MATS.get(key)
 }
-function clearMobs(){for(const m of mobs){scene.remove(m);m.traverse(o=>{o.geometry?.dispose?.();if(o.material&&!Array.isArray(o.material))o.material.dispose?.()})}mobs=[]}
+function mobPart(w,h,d,color,x,y,z,parent){const q=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mobMat(color));q.position.set(x,y,z);q.userData.mobPart=true;parent.add(q);return q}
+function mobFacePart(w,h,d,color,x,y,z,parent){return mobPart(w,h,d,color,x,y,z,parent)}
+function makeMob(kind,x,z){
+ const defs={cow:{hp:10,hostile:false,speed:.62},sheep:{hp:8,hostile:false,speed:.58},chicken:{hp:4,hostile:false,speed:.68},zombie:{hp:12,hostile:true,speed:1.05},skeleton:{hp:10,hostile:true,speed:.92},spider:{hp:12,hostile:true,speed:1.25}};
+ const d=defs[kind];if(!d)return null;const g=new THREE.Group();g.userData={mob:true,kind,hp:d.hp,maxHp:d.hp,hostile:d.hostile,speed:d.speed,dir:Math.random()*Math.PI*2,think:0,attack:0};
+ // Deliberately simple, readable voxel models with distinct Minecraft-like silhouettes.
+ if(kind==='cow'){
+   mobPart(1.15,.72,.62,0x6b4328,0,.82,0,g);mobPart(.62,.62,.58,0x7b4d2d,0,1.12,-.55,g);
+   mobPart(.18,.16,.12,0xe7d6b9,-.18,1.16,-.86,g);mobPart(.18,.16,.12,0xe7d6b9,.18,1.16,-.86,g);
+   for(const xx of [-.4,.4])for(const zz of [-.2,.2])mobPart(.16,.72,.16,0x3d2a1e,xx,.36,zz,g)
+ }else if(kind==='sheep'){
+   mobPart(1.18,.82,.68,0xe7e3d8,0,.86,0,g);mobPart(.58,.58,.54,0x77736d,0,1.14,-.58,g);
+   for(const xx of [-.4,.4])for(const zz of [-.2,.2])mobPart(.15,.68,.15,0x5f5b56,xx,.34,zz,g)
+ }else if(kind==='chicken'){
+   mobPart(.58,.66,.52,0xf0eee5,0,.58,0,g);mobPart(.4,.4,.4,0xf5f3e9,0,1.02,-.22,g);
+   mobPart(.18,.12,.22,0xe6a12b,0,.96,-.52,g);mobPart(.12,.18,.08,0xc9362b,0,.79,-.43,g);
+   mobPart(.1,.38,.1,0xd39a2c,-.15,.19,0,g);mobPart(.1,.38,.1,0xd39a2c,.15,.19,0,g)
+ }else if(kind==='zombie'){
+   mobPart(.58,.9,.34,0x3d6f45,0,.92,0,g);mobPart(.58,.58,.54,0x4e8a58,0,1.66,0,g);
+   mobPart(.18,.86,.18,0x3b5c78,-.18,.34,0,g);mobPart(.18,.86,.18,0x3b5c78,.18,.34,0,g);
+   mobPart(.18,.82,.18,0x4e8a58,-.4,.95,0,g);mobPart(.18,.82,.18,0x4e8a58,.4,.95,0,g)
+ }else if(kind==='skeleton'){
+   mobPart(.36,.72,.22,0xd6d3c8,0,1.0,0,g);mobPart(.55,.55,.5,0xe1ded3,0,1.65,0,g);
+   for(const xx of [-.17,.17])mobPart(.13,.86,.13,0xcfcbbf,xx,.39,0,g);
+   mobPart(.12,.78,.12,0xcfcbbf,-.34,1.02,0,g);mobPart(.12,.78,.12,0xcfcbbf,.34,1.02,0,g)
+ }else if(kind==='spider'){
+   mobPart(.92,.34,.72,0x302626,0,.34,0,g);mobPart(.55,.34,.5,0x3b2b2b,0,.35,-.58,g);
+   for(const side of [-1,1])for(let i=0;i<4;i++)mobPart(.62,.08,.08,0x211b1b,side*.68,.27,(i-1.5)*.2,g)
+ }
+ // Faces are actual voxel geometry attached to the FRONT (-Z) of each head,
+ // so they rotate with the mob and always face the direction it is walking.
+ if(kind==='cow'){
+   mobFacePart(.10,.10,.035,0x111111,-.17,1.23,-.852,g);mobFacePart(.10,.10,.035,0x111111,.17,1.23,-.852,g);
+   mobFacePart(.38,.20,.055,0xd6a77f,0,1.06,-.875,g);mobFacePart(.055,.055,.025,0x3b241b,-.10,1.06,-.91,g);mobFacePart(.055,.055,.025,0x3b241b,.10,1.06,-.91,g);
+ }else if(kind==='sheep'){
+   mobFacePart(.09,.09,.035,0x111111,-.16,1.20,-.862,g);mobFacePart(.09,.09,.035,0x111111,.16,1.20,-.862,g);
+   mobFacePart(.30,.14,.045,0xb7aaa0,0,1.05,-.875,g);
+   mobFacePart(.15,.11,.10,0x77736d,-.36,1.19,-.57,g);mobFacePart(.15,.11,.10,0x77736d,.36,1.19,-.57,g);
+ }else if(kind==='chicken'){
+   mobFacePart(.07,.07,.025,0x111111,-.11,1.09,-.425,g);mobFacePart(.07,.07,.025,0x111111,.11,1.09,-.425,g);
+ }else if(kind==='zombie'){
+   mobFacePart(.11,.08,.025,0x162319,-.16,1.74,-.282,g);mobFacePart(.11,.08,.025,0x162319,.16,1.74,-.282,g);
+   mobFacePart(.25,.055,.025,0x26352a,0,1.52,-.282,g);
+ }else if(kind==='skeleton'){
+   mobFacePart(.14,.15,.025,0x292929,-.15,1.72,-.262,g);mobFacePart(.14,.15,.025,0x292929,.15,1.72,-.262,g);
+   mobFacePart(.27,.055,.025,0x4a4a46,0,1.52,-.262,g);
+ }else if(kind==='spider'){
+   for(const xx of [-.18,-.06,.06,.18]){mobFacePart(.07,.07,.025,0xc92b25,xx,.40,-.842,g);mobFacePart(.055,.055,.025,0x8d1717,xx,.31,-.842,g)}
+ }
+ const gy=mobGroundY(x,z);g.position.set(x,gy,z);scene.add(g);mobs.push(g);return g
+}
+function mobGroundY(x,z){return height(Math.round(x),Math.round(z),activeSeedHash,worldType)+.5}
+function clearMobs(){for(const m of mobs){scene.remove(m);m.traverse(o=>{o.geometry?.dispose?.()})}mobs=[]}
 function mobRoot(o){while(o&&o.parent&&o.parent!==scene){if(o.userData?.mob)return o;o=o.parent}return o?.userData?.mob?o:null}
 function isNightNow(){let day=(performance.now()/1000)%180/180;if(!dayNight||forcedTime!=='cycle')day=forcedTime==='night'?.75:.25;return Math.sin(day*Math.PI*2)<-.15}
-function spawnNearbyMob(){if(mobs.length>=18)return;const hostile=isNightNow()&&difficulty!=='Peaceful';const kinds=hostile?['zombie','skeleton','spider']:['cow','sheep','pig','chicken'];const a=Math.random()*Math.PI*2,dist=9+Math.random()*12,x=camera.position.x+Math.cos(a)*dist,z=camera.position.z+Math.sin(a)*dist;makeMob(kinds[Math.floor(Math.random()*kinds.length)],x,z)}
+function spawnNearbyMob(){if(mobs.length>=8)return;const hostile=isNightNow()&&difficulty!=='Peaceful';const kinds=hostile?['zombie','skeleton','spider']:['cow','sheep','chicken'];const a=Math.random()*Math.PI*2,dist=10+Math.random()*10,x=camera.position.x+Math.cos(a)*dist,z=camera.position.z+Math.sin(a)*dist;makeMob(kinds[Math.floor(Math.random()*kinds.length)],x,z)}
 function damagePlayer(amount){if(mode!=='Survival'||difficulty==='Peaceful')return;health=Math.max(0,health-amount);renderBars();if(health<=0){toast('You died!');health=20;hunger=20;camera.position.set(0,spawnEyeY(0,8,worldSeed,worldType),8);vel.set(0,0,0)}}
-function attackMob(){const now=performance.now();if(now-lastMobAttack<320)return;lastMobAttack=now;raycaster.setFromCamera(new THREE.Vector2(0,0),camera);raycaster.far=4;const hits=raycaster.intersectObjects(mobs,true);if(!hits.length)return;const m=mobRoot(hits[0].object);if(!m)return;m.userData.hp-=4;const away=m.position.clone().sub(camera.position).setY(0).normalize();m.position.addScaledVector(away,.65);if(m.userData.hp<=0){const kind=m.userData.kind;scene.remove(m);mobs=mobs.filter(x=>x!==m);if(mode==='Survival'){if(['cow','pig','chicken'].includes(kind)){hunger=Math.min(20,hunger+2);renderBars()}toast(kind[0].toUpperCase()+kind.slice(1)+' defeated')}}}
-function updateMobs(dt){mobSpawnClock+=dt;if(mobSpawnClock>3.2){mobSpawnClock=0;spawnNearbyMob()}const player=camera.position;for(const m of [...mobs]){const u=m.userData;u.think-=dt;u.attack-=dt;const dx=player.x-m.position.x,dz=player.z-m.position.z,dist=Math.hypot(dx,dz);if(u.hostile&&difficulty!=='Peaceful'&&dist<12){u.dir=Math.atan2(dx,dz);if(dist<1.35&&u.attack<=0){u.attack=kindAttackDelay(u.kind);damagePlayer(u.kind==='skeleton'?1:2)}}else if(u.think<=0){u.think=1.5+Math.random()*3;u.dir+=(-1+Math.random()*2)*1.8}const sp=u.speed*(u.hostile&&dist<12?1:0.45);const nx=m.position.x+Math.sin(u.dir)*sp*dt,nz=m.position.z+Math.cos(u.dir)*sp*dt;const gy=height(Math.round(nx),Math.round(nz),activeSeedHash,worldType)+1;if(Math.abs(gy-m.position.y)<2.2){m.position.x=nx;m.position.z=nz;m.position.y+=(gy-m.position.y)*Math.min(1,dt*8)}m.rotation.y=u.dir;if(dist>34){scene.remove(m);mobs=mobs.filter(x=>x!==m)}}}
+function attackMob(){const now=performance.now();if(now-lastMobAttack<320)return;lastMobAttack=now;raycaster.setFromCamera(new THREE.Vector2(0,0),camera);raycaster.far=4;const hits=raycaster.intersectObjects(mobs,true);if(!hits.length)return;const m=mobRoot(hits[0].object);if(!m)return;m.userData.hp-=4;const away=m.position.clone().sub(camera.position).setY(0).normalize();m.position.addScaledVector(away,.5);if(m.userData.hp<=0){const kind=m.userData.kind;scene.remove(m);mobs=mobs.filter(x=>x!==m);if(mode==='Survival'){if(['cow','chicken'].includes(kind)){hunger=Math.min(20,hunger+2);renderBars()}toast(kind[0].toUpperCase()+kind.slice(1)+' defeated')}}}
+function updateMobs(dt){mobSpawnClock+=dt;if(mobSpawnClock>6){mobSpawnClock=0;spawnNearbyMob()}const player=camera.position;for(const m of [...mobs]){const u=m.userData;u.think-=dt;u.attack-=dt;const dx=player.x-m.position.x,dz=player.z-m.position.z,dist=Math.hypot(dx,dz);if(u.hostile&&difficulty!=='Peaceful'&&dist<11){u.dir=Math.atan2(dx,dz);if(dist<1.35&&u.attack<=0){u.attack=kindAttackDelay(u.kind);damagePlayer(u.kind==='skeleton'?1:2)}}else if(u.think<=0){u.think=2+Math.random()*3.5;u.dir+=(-1+Math.random()*2)*1.35}const sp=u.speed*(u.hostile&&dist<11?1:.35);const nx=m.position.x+Math.sin(u.dir)*sp*dt,nz=m.position.z+Math.cos(u.dir)*sp*dt;const gy=mobGroundY(nx,nz);if(Math.abs(gy-m.position.y)<1.35){m.position.x=nx;m.position.z=nz;m.position.y=gy}m.rotation.y=u.dir;if(dist>30){scene.remove(m);mobs=mobs.filter(x=>x!==m)}}}
 function kindAttackDelay(k){return k==='spider'?.8:k==='zombie'?1.05:1.35}
 
 function startWorld(n,m,t,s,diff='Normal'){
@@ -1132,6 +1191,13 @@ function itemPreview(id){
  itemPreviewCache[id]=c.toDataURL('image/png');return itemPreviewCache[id]
 }
 
+let hotbarNameTimer=null;
+function showHotbarName(id){
+ const el=$('#hotbarName');if(!el)return;clearTimeout(hotbarNameTimer);
+ if(!id||!ITEM_DEFS[id]){el.classList.remove('show');el.textContent='';return}
+ el.textContent=ITEM_DEFS[id].name;el.classList.add('show');
+ hotbarNameTimer=setTimeout(()=>el.classList.remove('show'),1500)
+}
 function renderHotbar(){
  const h=$('#hotbar');h.innerHTML='';
  hotbarSlots.forEach((rawId,i)=>{
@@ -1139,7 +1205,7 @@ function renderHotbar(){
    const def=id?ITEM_DEFS[id]:null,s=document.createElement('div');
    s.className='slot'+(i===selectedSlot?' sel':'')+(!def?' empty':'');
    if(def)s.innerHTML=`<img class="${TOOLS[id]?'toolThumb':'blockThumb'}" draggable="false" alt="${def.name}" src="${itemPreview(id)}"><small>${mode==='Creative'?'∞':(inventory[id]||0)}</small>`;
-   const choose=e=>{e.preventDefault();e.stopPropagation();selectedSlot=i;selected=def?id:null;renderHotbar();renderInventory()};
+   const choose=e=>{e.preventDefault();e.stopPropagation();selectedSlot=i;selected=def?id:null;renderHotbar();renderInventory();showHotbarName(selected)};
    s.addEventListener('pointerdown',choose);s.addEventListener('click',choose);
    h.appendChild(s)
  })
@@ -1316,15 +1382,15 @@ function showCrack(target,stage){stage=Math.max(0,Math.min(9,stage));if(!crackMe
 function hideCrack(){if(crackMesh)crackMesh.visible=false;crackStage=-1}
 function targetHit(){raycaster.setFromCamera(new THREE.Vector2(0,0),camera);const h=raycaster.intersectObjects(meshes,false);return h.find(x=>x.distance<5.5)}
 function currentTool(){return TOOLS[selected]||null}
-function miningDurationMs(type){const b=BLOCKS[type];if(!b||b.breakable===false)return Infinity;const tool=currentTool();let speed=1;if(tool)speed=tool.toolClass===b.tool?tool.speed:.72;return Math.max(120,b.hardness*1000/speed)}
+function miningDurationMs(type){const b=BLOCKS[type];if(!b||(b.breakable===false&&mode!=='Creative'))return Infinity;const tool=currentTool();let speed=1;if(tool)speed=tool.toolClass===b.tool?tool.speed:.72;return Math.max(120,b.hardness*1000/speed)}
 function ensureHotbarItem(id){
  if(!id)return;
  if(hotbarSlots.includes(id))return;
  const empty=hotbarSlots.findIndex(x=>!x||(mode!=='Creative'&&(inventory[x]||0)<=0));
  if(empty>=0)hotbarSlots[empty]=id
 }
-function mineOnce(){const hit=targetHit();if(!hit)return;const m=hit.object,typ=m.userData.type;if(BLOCKS[typ].breakable===false){toast('That cannot be mined');return}delBlock(m);hideCrack();if(mode!=='Creative'){inventory[typ]=(inventory[typ]||0)+1;ensureHotbarItem(typ);renderHotbar();renderInventory()}}
-function beginMine(){const hit=targetHit();if(!hit)return;const typ=hit.object.userData.type;if(BLOCKS[typ].breakable===false)return;mining=true;miningTarget=hit.object;miningStart=performance.now();breakDuration=mode==='Creative'?60:miningDurationMs(typ);$('#miningHint').textContent=currentTool()?currentTool().name:'Hand';$('#miningHint').classList.add('show');showCrack(miningTarget,0)}
+function mineOnce(){const hit=targetHit();if(!hit)return;const m=hit.object,typ=m.userData.type;if(BLOCKS[typ].breakable===false&&mode!=='Creative'){toast('That cannot be mined');return}delBlock(m);hideCrack();if(mode!=='Creative'){inventory[typ]=(inventory[typ]||0)+1;ensureHotbarItem(typ);renderHotbar();renderInventory()}}
+function beginMine(){const hit=targetHit();if(!hit)return;const typ=hit.object.userData.type;if(BLOCKS[typ].breakable===false&&mode!=='Creative')return;mining=true;miningTarget=hit.object;miningStart=performance.now();breakDuration=mode==='Creative'?60:miningDurationMs(typ);$('#miningHint').textContent=currentTool()?currentTool().name:'Hand';$('#miningHint').classList.add('show');showCrack(miningTarget,0)}
 function endMine(){mining=false;miningTarget=null;hideCrack();$('#miningHint').classList.remove('show')}
 function blockIntersectsPlayer(x,y,z){
  const a=playerAABB(camera.position);
@@ -1397,8 +1463,9 @@ function setupMobile(){
    mobileMove={x:dx/max,y:dy/max};
    st.style.transform=`translate(${dx}px,${dy}px)`
  }
- j.addEventListener('pointerdown',e=>{e.preventDefault();joyId=e.pointerId;j.setPointerCapture?.(joyId);mv(e)});
- j.addEventListener('pointermove',e=>{if(e.pointerId===joyId){e.preventDefault();mv(e)}});
+ let joyStartX=0,joyStartY=0,joyMoved=false;
+ j.addEventListener('pointerdown',e=>{e.preventDefault();joyId=e.pointerId;joyStartX=e.clientX;joyStartY=e.clientY;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='';j.setPointerCapture?.(joyId)});
+ j.addEventListener('pointermove',e=>{if(e.pointerId===joyId){e.preventDefault();if(!joyMoved&&Math.hypot(e.clientX-joyStartX,e.clientY-joyStartY)<7)return;joyMoved=true;mv(e)}});
  function endJoy(e){if(e&&joyId!==null&&e.pointerId!==joyId)return;joyId=null;mobileMove={x:0,y:0};st.style.transform=''}
  j.addEventListener('pointerup',endJoy);j.addEventListener('pointercancel',endJoy);
 
@@ -1460,8 +1527,8 @@ function update(dt){
  if(mode==='Creative'&&flying){const up=(flyRise||keys.Space)?1:0,down=(flyDescend||keys.ShiftLeft)?1:0;moveVertical((up-down)*5.2*dt);vel.y=0}
  else{vel.y-=15*dt;moveVertical(vel.y*dt);if(standingOnBlock()){onGround=true;if(vel.y<0)vel.y=0}}
  $('#coords').textContent=`${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)}`;
- chunkCheckClock+=dt;if(chunkCheckClock>.22){chunkCheckClock=0;updateChunks()}
- updateMobs(dt);
+ chunkCheckClock+=dt;if(chunkCheckClock>.35){chunkCheckClock=0;updateChunks()}
+ mobClock+=dt;if(mobClock>=1/30){updateMobs(mobClock);mobClock=0}
  if(mining&&miningTarget){
    const hit=targetHit();
    if(!hit||hit.object!==miningTarget)endMine();
@@ -1487,7 +1554,7 @@ function update(dt){
      }
    }
    $('#sprint').classList.toggle('disabled',!canSprint());
-   renderBars()
+   hudClock+=dt;if(hudClock>.2){hudClock=0;renderBars()}
  }
  let day=(performance.now()/1000)%180/180;if(!dayNight||forcedTime!=='cycle')day=forcedTime==='night'?.75:.25;const ang=day*Math.PI*2;sun.position.set(Math.cos(ang)*35,Math.sin(ang)*35,18);
  const daylight=Math.max(.18,Math.sin(ang)*.9+.25);sun.intensity=daylight;skyLight.intensity=.55+daylight*.65;scene.background.setHSL(.56,.55,.2+.45*daylight);if(scene.fog)scene.fog.color.copy(scene.background);
