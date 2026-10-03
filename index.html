@@ -556,6 +556,7 @@ button,input,select{font:inherit}
             <button class="creativeTab" data-creative-cat="blocks">Blocks</button>
             <button class="creativeTab" data-creative-cat="tools">Tools</button>
             <button class="creativeTab" data-creative-cat="natural">Natural</button>
+            <button class="creativeTab" data-creative-cat="mobs">Mobs</button>
           </div>
           <input id="creativeSearch" class="invSearch" placeholder="Search every block and item" autocomplete="off">
           <div id="creativeGrid" class="creativeItemGrid"></div>
@@ -832,6 +833,12 @@ for(const [tier,t] of Object.entries(TOOL_TIERS)){
  }
 }
 const ITEMS={stick:{id:'stick',name:'Stick',category:'items',color:'#9b7047'},...TOOLS};
+const MOB_SPAWNER_KINDS=['cow','sheep','chicken','zombie','skeleton','spider'];
+const MOB_SPAWNER_COLORS={cow:'#795238',sheep:'#eeeae0',chicken:'#f3f0df',zombie:'#4e8a58',skeleton:'#d8d5cb',spider:'#3a2929'};
+for(const kind of MOB_SPAWNER_KINDS){
+ const id=kind+'_mob_spawner',label=kind[0].toUpperCase()+kind.slice(1)+' Mob Spawner';
+ ITEMS[id]={id,name:label,category:'mobs',mobKind:kind,color:MOB_SPAWNER_COLORS[kind]};
+}
 const ITEM_DEFS={...BLOCKS,...ITEMS};
 let hotbarSlots=['grass','dirt','stone','wood','sand','coal','copper','planks','crafting'];
 let selected=hotbarSlots[0];
@@ -1151,7 +1158,26 @@ let audioCtx=null;
 function ensureAudio(){try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}catch(e){}return audioCtx}
 function tone(freq=220,dur=.07,type='square',vol=.035,slide=0){const a=ensureAudio();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(freq,a.currentTime);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(35,freq+slide),a.currentTime+dur);g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+dur);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+dur)}
 function noise(dur=.08,vol=.025,cut=900){const a=ensureAudio();if(!a)return;const n=Math.max(1,Math.floor(a.sampleRate*dur)),b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);const src=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();src.buffer=b;f.type='lowpass';f.frequency.value=cut;g.gain.value=vol;src.connect(f);f.connect(g);g.connect(a.destination);src.start()}
-function blockSound(kind,type){const stone=['stone','coal','copper','bedrock'].includes(type);if(kind==='break'){noise(.10,.035,stone?700:1200);tone(stone?115:155,.055,'square',.018,-35)}else{noise(.045,.018,stone?800:1400);tone(stone?135:180,.035,'square',.012,-20)}}
+function blockSound(kind,type){
+ // Short layered material sounds: a soft transient + a pitched body, rather than random beeps.
+ const stone=/stone|ore|brick|concrete|quartz|granite|diorite|andesite|deepslate|obsidian|bedrock|calcite/.test(type),
+       wood=/wood|planks|crafting|bookshelf/.test(type),
+       soft=/dirt|grass|sand|gravel|mud|clay|wool|snow/.test(type),
+       glassy=/glass|ice|glowstone/.test(type);
+ if(kind==='break'){
+   if(stone){noise(.115,.028,620);tone(92,.075,'triangle',.018,-28);setTimeout(()=>noise(.045,.012,1150),34)}
+   else if(wood){noise(.085,.024,980);tone(142,.055,'triangle',.016,-38)}
+   else if(glassy){noise(.075,.020,2500);tone(540,.055,'triangle',.012,180)}
+   else if(soft){noise(.105,.026,720);tone(105,.045,'sine',.012,-18)}
+   else{noise(.09,.024,900);tone(125,.05,'triangle',.014,-25)}
+ }else{
+   if(stone){noise(.032,.014,780);tone(112,.032,'triangle',.014,-18)}
+   else if(wood){noise(.032,.012,1200);tone(170,.030,'triangle',.012,-25)}
+   else if(glassy){tone(610,.032,'sine',.010,70)}
+   else if(soft){noise(.038,.014,650);tone(118,.025,'sine',.009,-10)}
+   else{noise(.03,.012,900);tone(145,.028,'triangle',.010,-15)}
+ }
+}
 function mobSound(kind,event='ambient'){if(event==='hurt'){tone(kind==='skeleton'?430:kind==='chicken'?520:kind==='zombie'?105:170,.10,kind==='skeleton'?'square':'sawtooth',.025,-45);return}if(kind==='cow'){tone(125,.16,'sawtooth',.018,-28)}else if(kind==='sheep'){tone(235,.13,'triangle',.018,35)}else if(kind==='chicken'){tone(510,.055,'square',.014,100);setTimeout(()=>tone(610,.04,'square',.010,-70),55)}else if(kind==='zombie'){tone(92,.22,'sawtooth',.018,-20)}else if(kind==='skeleton'){noise(.07,.018,2200);tone(720,.035,'square',.009,-180)}else if(kind==='spider'){noise(.10,.016,1700)}}
 const MOB_MATS=new Map();
 function mobMat(color){
@@ -1162,8 +1188,9 @@ function mobFacePart(w,h,d,color,x,y,z,parent){return mobPart(w,h,d,color,x,y,z,
 function makeMob(kind,x,z){
  const defs={cow:{hp:10,hostile:false,speed:.62},sheep:{hp:8,hostile:false,speed:.58},chicken:{hp:4,hostile:false,speed:.68},zombie:{hp:12,hostile:true,speed:1.05},skeleton:{hp:10,hostile:true,speed:.92},spider:{hp:12,hostile:true,speed:1.25}};
  const d=defs[kind];if(!d)return null;const g=new THREE.Group();g.userData={mob:true,kind,hp:d.hp,maxHp:d.hp,hostile:d.hostile,speed:d.speed,dir:Math.random()*Math.PI*2,think:0,attack:0,walk:Math.random()*6.28,sound:2+Math.random()*6,legs:[],arms:[]};
- const leg=(w,h,dep,c,x,y,z)=>{const q=mobPart(w,h,dep,c,x,y,z,g);g.userData.legs.push(q);return q};
- const arm=(w,h,dep,c,x,y,z)=>{const q=mobPart(w,h,dep,c,x,y,z,g);g.userData.arms.push(q);return q};
+ const limb=(w,h,dep,c,x,y,z,list)=>{const pivot=new THREE.Group();pivot.position.set(x,y+h/2,z);const mesh=mobPart(w,h,dep,c,0,-h/2,0,pivot);g.add(pivot);pivot.userData.mobPart=true;list.push(pivot);return pivot};
+ const leg=(w,h,dep,c,x,y,z)=>limb(w,h,dep,c,x,y,z,g.userData.legs);
+ const arm=(w,h,dep,c,x,y,z)=>limb(w,h,dep,c,x,y,z,g.userData.arms);
  if(kind==='cow'){
    mobPart(1.18,.72,.68,0x6b4328,0,.86,0,g);mobPart(.64,.62,.58,0x74482d,0,1.16,-.58,g);
    // irregular hide patches instead of a single plain brown box
@@ -1181,9 +1208,9 @@ function makeMob(kind,x,z){
  }else if(kind==='zombie'){
    mobPart(.60,.90,.36,0x365f8d,0,.94,0,g);mobFacePart(.22,.20,.025,0x284d78,.18,1.02,-.19,g);mobPart(.60,.60,.55,0x4e8a58,0,1.68,0,g);
    leg(.19,.86,.19,0x3b5c78,-.18,.34,0);leg(.19,.86,.19,0x3b5c78,.18,.34,0);arm(.19,.84,.19,0x4e8a58,-.41,.96,0);arm(.19,.84,.19,0x4e8a58,.41,.96,0);
-   mobFacePart(.11,.08,.025,0x162319,-.16,1.76,-.288,g);mobFacePart(.11,.08,.025,0x162319,.16,1.76,-.288,g);mobFacePart(.25,.055,.025,0x26352a,0,1.53,-.288,g);
+   mobFacePart(.11,.08,.025,0x162319,-.16,1.76,-.288,g);mobFacePart(.11,.08,.025,0x162319,.16,1.76,-.288,g);mobFacePart(.25,.055,.025,0x26352a,0,1.53,-.288,g);mobFacePart(.12,.10,.026,0x416f49,-.19,1.58,-.289,g);mobFacePart(.10,.08,.026,0x6b9b62,.20,1.88,-.289,g);
  }else if(kind==='skeleton'){
-   mobPart(.37,.72,.23,0xd6d3c8,0,1.0,0,g);mobPart(.56,.56,.51,0xe1ded3,0,1.66,0,g);leg(.13,.86,.13,0xcfcbbf,-.17,.39,0);leg(.13,.86,.13,0xcfcbbf,.17,.39,0);arm(.12,.78,.12,0xcfcbbf,-.34,1.02,0);arm(.12,.78,.12,0xcfcbbf,.34,1.02,0);mobFacePart(.14,.15,.025,0x292929,-.15,1.73,-.268,g);mobFacePart(.14,.15,.025,0x292929,.15,1.73,-.268,g);mobFacePart(.27,.055,.025,0x4a4a46,0,1.52,-.268,g);
+   mobPart(.37,.72,.23,0xd6d3c8,0,1.0,0,g);mobPart(.56,.56,.51,0xe1ded3,0,1.66,0,g);leg(.13,.86,.13,0xcfcbbf,-.17,.39,0);leg(.13,.86,.13,0xcfcbbf,.17,.39,0);arm(.12,.78,.12,0xcfcbbf,-.34,1.02,0);arm(.12,.78,.12,0xcfcbbf,.34,1.02,0);mobFacePart(.14,.15,.025,0x292929,-.15,1.73,-.268,g);mobFacePart(.14,.15,.025,0x292929,.15,1.73,-.268,g);mobFacePart(.27,.055,.025,0x4a4a46,0,1.52,-.268,g);mobFacePart(.045,.10,.026,0x696762,-.12,1.52,-.269,g);mobFacePart(.045,.10,.026,0x696762,0,1.52,-.269,g);mobFacePart(.045,.10,.026,0x696762,.12,1.52,-.269,g);mobPart(.48,.10,.10,0xb9b6ac,0,1.18,0,g);mobPart(.46,.10,.10,0xb9b6ac,0,1.03,0,g);
  }else if(kind==='spider'){
    mobPart(.94,.35,.74,0x302626,0,.35,0,g);mobFacePart(.24,.15,.025,0x4a3333,.28,.40,-.382,g);mobPart(.56,.35,.52,0x3b2b2b,0,.36,-.60,g);for(const side of [-1,1])for(let i=0;i<4;i++){const q=leg(.63,.08,.08,0x211b1b,side*.68,.28,(i-1.5)*.2);q.userData.spiderSide=side;q.userData.spiderIndex=i}for(const xx of [-.18,-.06,.06,.18]){mobFacePart(.07,.07,.025,0xc92b25,xx,.41,-.872,g);mobFacePart(.055,.055,.025,0x8d1717,xx,.32,-.872,g)}
  }
@@ -1195,7 +1222,12 @@ function mobRoot(o){while(o&&o.parent&&o.parent!==scene){if(o.userData?.mob)retu
 function isNightNow(){let day=(performance.now()/1000)%180/180;if(!dayNight||forcedTime!=='cycle')day=forcedTime==='night'?.75:.25;return Math.sin(day*Math.PI*2)<-.15}
 function spawnNearbyMob(){if(mobs.length>=6)return;const hostile=isNightNow()&&difficulty!=='Peaceful';const kinds=hostile?['zombie','skeleton','spider']:['cow','sheep','chicken'];const a=Math.random()*Math.PI*2,dist=10+Math.random()*10,x=camera.position.x+Math.cos(a)*dist,z=camera.position.z+Math.sin(a)*dist;makeMob(kinds[Math.floor(Math.random()*kinds.length)],x,z)}
 function damagePlayer(amount){if(mode!=='Survival'||difficulty==='Peaceful')return;health=Math.max(0,health-amount);renderBars();if(health<=0){toast('You died!');health=20;hunger=20;camera.position.set(0,spawnEyeY(0,8,worldSeed,worldType),8);vel.set(0,0,0)}}
-function attackMob(){const now=performance.now();if(now-lastMobAttack<320)return;lastMobAttack=now;raycaster.setFromCamera(new THREE.Vector2(0,0),camera);raycaster.far=4;const hits=raycaster.intersectObjects(mobs,true);if(!hits.length)return;const m=mobRoot(hits[0].object);if(!m)return;mobSound(m.userData.kind,'hurt');m.userData.hp-=4;const away=m.position.clone().sub(camera.position).setY(0).normalize();m.position.addScaledVector(away,.5);if(m.userData.hp<=0){const kind=m.userData.kind;scene.remove(m);mobs=mobs.filter(x=>x!==m);if(mode==='Survival'){if(['cow','chicken'].includes(kind)){hunger=Math.min(20,hunger+2);renderBars()}toast(kind[0].toUpperCase()+kind.slice(1)+' defeated')}}}
+function flashMobHurt(m){
+ if(!m||m.userData.hurtFlash)return;m.userData.hurtFlash=true;
+ const swapped=[];m.traverse(o=>{if(!o.isMesh||!o.material)return;const original=o.material,red=original.clone();red.color.set(0xd94b45);red.emissive?.set?.(0x4a0808);swapped.push([o,original,red]);o.material=red});
+ setTimeout(()=>{for(const [o,original,red] of swapped){if(o.parent)o.material=original;red.dispose?.()}m.userData.hurtFlash=false},300)
+}
+function attackMob(){const now=performance.now();if(now-lastMobAttack<320)return;lastMobAttack=now;raycaster.setFromCamera(new THREE.Vector2(0,0),camera);raycaster.far=4;const hits=raycaster.intersectObjects(mobs,true);if(!hits.length)return;const m=mobRoot(hits[0].object);if(!m)return;mobSound(m.userData.kind,'hurt');flashMobHurt(m);m.userData.hurtBoost=.28;m.userData.hp-=4;const away=m.position.clone().sub(camera.position).setY(0).normalize();m.position.addScaledVector(away,.5);if(m.userData.hp<=0){const kind=m.userData.kind;scene.remove(m);mobs=mobs.filter(x=>x!==m);if(mode==='Survival'){if(['cow','chicken'].includes(kind)){hunger=Math.min(20,hunger+2);renderBars()}toast(kind[0].toUpperCase()+kind.slice(1)+' defeated')}}}
 function updateMobs(dt){
  mobSpawnClock+=dt;if(mobSpawnClock>6){mobSpawnClock=0;spawnNearbyMob()}const player=camera.position;
  for(const m of [...mobs]){const u=m.userData;u.think-=dt;u.attack-=dt;u.sound-=dt;const dx=player.x-m.position.x,dz=player.z-m.position.z,dist=Math.hypot(dx,dz);
@@ -1204,7 +1236,7 @@ function updateMobs(dt){
    if(chasing){u.dir=Math.atan2(dx,dz);if(dist<1.35&&u.attack<=0){u.attack=kindAttackDelay(u.kind);mobSound(u.kind,'ambient');damagePlayer(u.kind==='skeleton'?1:2)}}
    else if(u.think<=0){u.think=2+Math.random()*3.5;u.dir+=(-1+Math.random()*2)*1.35}
    if(u.sound<=0&&dist<15){u.sound=5+Math.random()*9;mobSound(u.kind,'ambient')}
-   const sp=u.speed*(chasing?1:.35),step=sp*dt,nx=m.position.x+Math.sin(u.dir)*step,nz=m.position.z+Math.cos(u.dir)*step;const gy=mobGroundY(nx,nz);let moved=false;
+   if(u.hurtBoost>0)u.hurtBoost=Math.max(0,u.hurtBoost-dt);const sp=u.speed*(u.hurtBoost>0?1.75:(chasing?1:.35)),step=sp*dt,nx=m.position.x+Math.sin(u.dir)*step,nz=m.position.z+Math.cos(u.dir)*step;const gy=mobGroundY(nx,nz);let moved=false;
    if(Math.abs(gy-m.position.y)<1.35){m.position.x=nx;m.position.z=nz;m.position.y=gy;moved=step>.0001}
    // Model faces -Z, while dir=0 moves +Z, hence +PI fixes the old backwards zombie.
    m.rotation.y=u.dir+Math.PI;
@@ -1265,7 +1297,13 @@ function itemPreview(id){
  const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d');
  g.imageSmoothingEnabled=false;g.clearRect(0,0,32,32);
  const rect=(x,y,w,h,col)=>{g.fillStyle=col;g.fillRect(x,y,w,h)};
- if(TOOLS[id]){
+ if(ITEMS[id]?.mobKind){
+   // BlockForge spawn egg: outlined pixel egg with mob-specific spots.
+   const base='#ded8c8',spot=ITEMS[id].color||'#666',outline='#292929';
+   [[12,3,8,2],[9,5,14,3],[7,8,18,5],[6,13,20,8],[8,21,16,5],[11,26,10,3]].forEach(a=>rect(a[0]-1,a[1]-1,a[2]+2,a[3]+2,outline));
+   [[12,3,8,2],[9,5,14,3],[7,8,18,5],[6,13,20,8],[8,21,16,5],[11,26,10,3]].forEach(a=>rect(...a,base));
+   rect(10,10,5,5,spot);rect(18,15,5,4,spot);rect(11,21,4,3,spot);rect(17,7,3,3,spot);rect(15,25,3,2,spot);
+ }else if(TOOLS[id]){
    const t=TOOLS[id];
    // Pixel-art tools: dark outline, wooden handle, shaded material head.
    const head=t.color, dark=shadeHex(head,-42), light=shadeHex(head,34), outline='#202124';
@@ -1470,7 +1508,7 @@ function renderInventory(){
    const q=($('#creativeSearch')?.value||'').toLowerCase(),grid=$('#creativeGrid');grid.innerHTML='';
    Object.keys(ITEM_DEFS).filter(id=>{
      const d=ITEM_DEFS[id];
-     const catOk=creativeCategory==='all'||(creativeCategory==='tools'&&!!TOOLS[id])||(creativeCategory==='blocks'&&!!BLOCKS[id])||(creativeCategory==='natural'&&BLOCKS[id]?.category==='natural');
+     const catOk=creativeCategory==='all'||(creativeCategory==='tools'&&!!TOOLS[id])||(creativeCategory==='blocks'&&!!BLOCKS[id])||(creativeCategory==='natural'&&BLOCKS[id]?.category==='natural')||(creativeCategory==='mobs'&&ITEMS[id]?.category==='mobs');
      return catOk&&d.name.toLowerCase().includes(q)
    }).forEach(id=>{
      const c=document.createElement('div');c.className='creativeCell'+(id===selected?' sel':'');c.innerHTML=`<img draggable="false" alt="${ITEM_DEFS[id].name}" src="${itemPreview(id)}"><small>∞</small>`;
@@ -1505,7 +1543,16 @@ function blockIntersectsPlayer(x,y,z){
  const a=playerAABB(camera.position);
  return a.maxX>x-.5&&a.minX<x+.5&&a.maxY>y-.5&&a.minY<y+.5&&a.maxZ>z-.5&&a.minZ<z+.5
 }
+function useMobSpawner(){
+ const item=ITEMS[selected];if(!item?.mobKind)return false;
+ const hit=targetHit();let x,z;
+ if(hit){const p=hit.object.position.clone().add(hit.face.normal);x=p.x;z=p.z}else{x=camera.position.x-Math.sin(yaw)*2.5;z=camera.position.z-Math.cos(yaw)*2.5}
+ makeMob(item.mobKind,x,z);mobSound(item.mobKind,'ambient');toast(item.name+' spawned');
+ if(mode!=='Creative'&&(inventory[selected]||0)>0){inventory[selected]--;if(inventory[selected]<=0){hotbarSlots[selectedSlot]=null;selected=null}renderHotbar();renderInventory()}
+ return true
+}
 function place(){
+ if(ITEMS[selected]?.mobKind){useMobSpawner();return}
  if(!selected||!BLOCKS[selected]){toast('Select a block');return}
  const hit=targetHit();if(!hit)return;
  const p=hit.object.position.clone().add(hit.face.normal),x=Math.round(p.x),y=Math.round(p.y),z=Math.round(p.z);
@@ -1662,7 +1709,7 @@ function update(dt){
  camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
  const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();
  if(keys.KeyW)d.add(f);if(keys.KeyS)d.sub(f);if(keys.KeyD)d.add(r);if(keys.KeyA)d.sub(r);if(Math.abs(mobileMove.y)>.1)d.addScaledVector(f,-mobileMove.y);if(Math.abs(mobileMove.x)>.1)d.addScaledVector(r,mobileMove.x);if(d.lengthSq())d.normalize();
- const moving=d.lengthSq()>.0001;const sprint=(mode==='Creative'?(sprintEnabled||keys.ShiftLeft):(sprintEnabled&&canSprint()));const speed=mode==='Creative'?(sprint?6.2:4.8):(sprint?5.2:3.6);moveHorizontal(d.multiplyScalar(speed*dt));
+ const moving=d.lengthSq()>.0001;const sprint=(mode==='Creative'?(sprintEnabled||keys.ShiftLeft):(sprintEnabled&&canSprint()));const speed=mode==='Creative'?(sprint?4.35:3.15):(sprint?4.0:2.75);moveHorizontal(d.multiplyScalar(speed*dt));
  if(mode==='Creative'&&flying){const up=(flyRise||keys.Space)?1:0,down=(flyDescend||keys.ShiftLeft)?1:0;moveVertical((up-down)*5.2*dt);vel.y=0}
  else{vel.y-=15*dt;moveVertical(vel.y*dt);if(standingOnBlock()){onGround=true;if(vel.y<0)vel.y=0}}
  $('#coords').textContent=`${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)}`;
