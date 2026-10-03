@@ -874,7 +874,7 @@ function woodTopTex(){
 
 function init3D(){
  scene=new THREE.Scene();scene.background=new THREE.Color(0x77c9f4);scene.fog=new THREE.Fog(0x77c9f4,28,86);
- camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,.1,500);renderer=new THREE.WebGLRenderer({canvas:$('#view'),antialias:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);
+ camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,.1,500);renderer=new THREE.WebGLRenderer({canvas:$('#view'),antialias:false});renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);
  Object.keys(BLOCKS).forEach(k=>{
  if(k==='grass'){
    const side=new THREE.MeshLambertMaterial({map:grassSideTex()});
@@ -927,11 +927,25 @@ function removeBlockMesh(m){
  const set=loadedChunks.get(m.userData.chunkKey);if(set)set.delete(m);
  scene.remove(m);m.geometry.dispose()
 }
+function superflatBaseType(y){return y===54?'grass':y>=51&&y<=53?'dirt':y>=1&&y<=50?'stone':y===0?'bedrock':null}
+function revealSuperflatAround(x,y,z){
+ if(worldType!=='Superflat')return;
+ // Superflat is stored as a lightweight surface. Only blocks exposed by mining
+ // are materialised, avoiding tens of thousands of hidden meshes on iPad.
+ const pts=[[x,y-1,z],[x+1,y,z],[x-1,y,z],[x,y,z+1],[x,y,z-1]];
+ for(const [bx,by,bz] of pts){
+   const t=superflatBaseType(by),k=posKey(bx,by,bz);
+   if(!t||blocks.has(k)||worldEdits.has(k))continue;
+   addBlock(bx,by,bz,t,null,null,false)
+ }
+}
 function delBlock(m,recordEdit=true){
  if(!m)return;
- const k=posKey(m.userData.x,m.userData.y,m.userData.z);
+ const {x,y,z}=m.userData;
+ const k=posKey(x,y,z);
  if(recordEdit)worldEdits.set(k,null);
- removeBlockMesh(m)
+ removeBlockMesh(m);
+ revealSuperflatAround(x,y,z)
 }
 function hseed(s){let h=2166136261;for(const ch of String(s)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 function rnd(x,z,s){const n=Math.sin(x*127.1+z*311.7+s*.00013)*43758.5453;return n-Math.floor(n)}
@@ -981,23 +995,21 @@ function generateChunk(cx,cz){
    const x=x0+lx,z=z0+lz;
    let hh=height(x,z,s,worldType);
    if(worldType==='Island'&&hh<1)continue;
-   for(let y=0;y<=hh;y++){
-     // Superflat has an exact fixed stack: grass at y=54, three dirt layers,
-     // exactly 50 stone layers (y=1..50), bedrock at y=0, then void below.
-     // No trees, caves, ores, water, plants or structures are generated.
-     if(worldType!=='Superflat' && cave(x,y,z,s))continue;
-     let t;
-     if(worldType==='Superflat'){
-       t=y===54?'grass':y>=51?'dirt':y>=1?'stone':'bedrock';
-     }else{
-       t=y===hh?'grass':y>hh-3?'dirt':'stone';
+   if(worldType==='Superflat'){
+     // Render only the exposed grass surface. The 3 dirt + 50 stone + bedrock
+     // stack still exists procedurally and is revealed as the player digs.
+     addGeneratedBlock(x,54,z,'grass',cx,cz);
+   }else{
+     for(let y=0;y<=hh;y++){
+       if(cave(x,y,z,s))continue;
+       let t=y===hh?'grass':y>hh-3?'dirt':'stone';
        const rr=rnd(x*5+y,z*7,s);
        if(y<hh-2&&rr>.975)t='coal';
        else if(y<hh-2&&rr>.952)t='copper';
+       addGeneratedBlock(x,y,z,t,cx,cz)
      }
-     addGeneratedBlock(x,y,z,t,cx,cz)
+     generateTree(x,z,hh,cx,cz,s)
    }
-   if(worldType!=='Superflat')generateTree(x,z,hh,cx,cz,s)
  }
  // Re-apply user placed blocks whose coordinates belong in/near this chunk.
  for(const [pk,type] of worldEdits){
