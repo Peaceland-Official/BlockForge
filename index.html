@@ -1011,9 +1011,17 @@ function generateChunk(cx,cz){
      // stack still exists procedurally and is revealed as the player digs.
      addGeneratedBlock(x,54,z,'grass',cx,cz);
    }else{
-     // PERFORMANCE: render only the visible terrain surface. Dirt, stone, ores
-     // and caves remain procedural and are created only when mining exposes them.
+     // Render the top plus only the vertical blocks exposed by neighbouring lower
+     // columns. This closes the fake 'void holes' on hills without rebuilding
+     // every invisible underground block.
      addGeneratedBlock(x,hh,z,'grass',cx,cz);
+     const nh=[height(x+1,z,s,worldType),height(x-1,z,s,worldType),height(x,z+1,s,worldType),height(x,z-1,s,worldType)];
+     let lowest=Math.min(...nh);
+     if(worldType==='Island')lowest=Math.max(0,lowest);
+     for(let yy=hh-1;yy>lowest;yy--){
+       const t=terrainBaseType(x,yy,z);
+       if(t)addGeneratedBlock(x,yy,z,t,cx,cz)
+     }
      generateTree(x,z,hh,cx,cz,s)
    }
  }
@@ -1482,9 +1490,24 @@ function setupMobile(){
    st.style.transform=`translate(${dx}px,${dy}px)`
  }
  let joyStartX=0,joyStartY=0,joyMoved=false;
- j.addEventListener('pointerdown',e=>{e.preventDefault();joyId=e.pointerId;joyStartX=e.clientX;joyStartY=e.clientY;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='';j.setPointerCapture?.(joyId)});
- j.addEventListener('pointermove',e=>{if(e.pointerId===joyId){e.preventDefault();if(!joyMoved&&Math.hypot(e.clientX-joyStartX,e.clientY-joyStartY)<7)return;joyMoved=true;mv(e)}});
- function endJoy(e){if(e&&joyId!==null&&e.pointerId!==joyId)return;joyId=null;mobileMove={x:0,y:0};st.style.transform=''}
+ // iPad Safari: use direct touch tracking for the joystick. Pointer capture can
+ // intermittently swallow joystick movement while WebGL is active.
+ let joyTouchId=null;
+ function touchPoint(list,id){for(const t of list)if(t.identifier===id)return t;return null}
+ j.addEventListener('touchstart',e=>{
+   if(joyTouchId!==null)return;const t=e.changedTouches[0];if(!t)return;e.preventDefault();
+   joyTouchId=t.identifier;joyStartX=t.clientX;joyStartY=t.clientY;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='';
+ },{passive:false});
+ j.addEventListener('touchmove',e=>{
+   const t=touchPoint(e.changedTouches,joyTouchId)||touchPoint(e.touches,joyTouchId);if(!t)return;e.preventDefault();
+   if(!joyMoved&&Math.hypot(t.clientX-joyStartX,t.clientY-joyStartY)<5)return;joyMoved=true;mv(t);
+ },{passive:false});
+ function endTouchJoy(e){if(joyTouchId===null)return;const t=touchPoint(e.changedTouches,joyTouchId);if(!t)return;e.preventDefault();joyTouchId=null;mobileMove={x:0,y:0};st.style.transform=''}
+ j.addEventListener('touchend',endTouchJoy,{passive:false});j.addEventListener('touchcancel',endTouchJoy,{passive:false});
+ // Mouse/desktop fallback. Ignore touch-generated pointer events on iPad.
+ j.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;e.preventDefault();joyId=e.pointerId;joyStartX=e.clientX;joyStartY=e.clientY;joyMoved=false;mobileMove={x:0,y:0};st.style.transform='';j.setPointerCapture?.(joyId)});
+ j.addEventListener('pointermove',e=>{if(e.pointerType==='touch'||e.pointerId!==joyId)return;e.preventDefault();if(!joyMoved&&Math.hypot(e.clientX-joyStartX,e.clientY-joyStartY)<5)return;joyMoved=true;mv(e)});
+ function endJoy(e){if(e&&e.pointerType==='touch')return;if(e&&joyId!==null&&e.pointerId!==joyId)return;joyId=null;mobileMove={x:0,y:0};st.style.transform=''}
  j.addEventListener('pointerup',endJoy);j.addEventListener('pointercancel',endJoy);
 
  let lookId=null,lx=0,ly=0,downX=0,downY=0,holdTimer=null,lookMoved=false;
